@@ -87,5 +87,5 @@ for epoch in range(num_epoch):  # 进行多个epoch的训练
             fake_images = fake_img.cpu().clamp(0,1).view(-1,1,28,28).data
             save_image(fake_images, './img_CGAN_MNIST/fake_images-{}.png'.format(epoch + 1))
 # 保存模型
-torch.save(G.state_dict(), 'E:/Project/ModelAndDataset/generator_CGAN_mnist.pth')
+torch.save(G.state_dict(), 'E:/Project/ModelAndDataset/model/generator_CGAN_mnist.pth')
 torch.save(D.state_dict(), 'E:/Project/ModelAndDataset/model/discriminator_CGAN_mnist.pth')

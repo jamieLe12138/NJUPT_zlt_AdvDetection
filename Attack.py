@@ -28,7 +28,7 @@ img_transform = transforms.Compose([
 ])
 
 mnist_test= datasets.MNIST(
-    root='./data', train=False, transform=img_transform, download=True
+    root='E:/Project/ModelAndDataset/data', train=False, transform=img_transform, download=True
 )
 batch_size = 64  # 选择适当的批次大小
 test_loader = torch.utils.data.DataLoader(mnist_test, batch_size=batch_size, shuffle=False)

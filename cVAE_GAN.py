@@ -77,10 +77,6 @@ class Discriminator_MNIST(nn.Module):
         x = self.fc(x)
         return x.squeeze(1)
     
-class VAE_cifar10(nn.Module):
-     def __init__(self,z_dimension,device):
-        super(VAE_cifar10, self).__init__()
-
 
 def loss_function(recon_x,x,mean,logstd,device):
     MSECriterion = nn.MSELoss().to(device)
@@ -88,4 +84,10 @@ def loss_function(recon_x,x,mean,logstd,device):
     logvar = 2 * logstd
     KLD = KLD = -0.5 * torch.sum(1 + logvar - torch.pow(mean, 2) - torch.exp(logvar))
     return MSE+KLD
+
+
+
+
+
+
 
