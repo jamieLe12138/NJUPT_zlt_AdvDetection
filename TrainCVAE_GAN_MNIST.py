@@ -21,7 +21,7 @@ img_transform = transforms.Compose([
 ])
 
 mnist = datasets.MNIST(
-    root='./data', train=True, transform=img_transform, download=True
+    root="E:/Project/ModelAndDataset/data", train=True, transform=img_transform, download=True
 )
 # data loader 数据载入
 dataloader = torch.utils.data.DataLoader(

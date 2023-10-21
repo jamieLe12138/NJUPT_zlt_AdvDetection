@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-
+#编码块
 class EncoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
         super(EncoderBlock, self).__init__()
@@ -39,10 +39,11 @@ class ConditionalBatchNorm2d(nn.Module):
         x = gamma * x + beta
         
         return x
-
+#编码器
 class Encoder_cifar10(nn.Module):
     def __init__(self,z_dimension=80,device="cpu"):
         super(Encoder_cifar10, self).__init__()
+        self.device=device
         # 定义编码器
         self.encoder_conv = nn.Sequential(
             EncoderBlock(3,64,3,1,'same'),
@@ -56,10 +57,9 @@ class Encoder_cifar10(nn.Module):
             nn.Flatten(),
             nn.Linear(512*32*32,128),
             nn.LeakyReLU(0.2)
-        )
-        self.encoder_fc1=nn.Linear(128,z_dimension)
-        self.encoder_fc2=nn.Linear(128,z_dimension)
-        self.device=device
+        ).to(self.device)
+        self.encoder_fc1=nn.Linear(128,z_dimension).to(self.device)
+        self.encoder_fc2=nn.Linear(128,z_dimension).to(self.device)
     def noise_reparameterize(self,mean,logvar):
         eps = torch.randn(mean.shape).to(self.device)
         z = mean + eps * torch.exp(logvar)
@@ -93,7 +93,7 @@ class Decoder_Conv_CBN(nn.Module):
         return x
 
 
-
+#生成块
 class DecoderBlock(nn.Module):
     def __init__(self,gen_size,num_features,embed_size,chunksize,ys_length):
         super(DecoderBlock,self).__init__()
@@ -184,6 +184,123 @@ class Decoder_cifar10(nn.Module):
         z=self.conv(z)
         z=self.tanh(z)
         return z
+    
+class Dis_BN_Relu_Conv(nn.Module):
+    def __init__(self,in_channels,num_features):
+        super(Dis_BN_Relu_Conv,self).__init__()
+        self.in_channels=in_channels
+        self.num_features=num_features
+
+        self.bn=nn.BatchNorm2d(num_features=self.in_channels)
+        self.relu=nn.ReLU()
+        self.conv=nn.Conv2d(in_channels,num_features,3,1,'same')                 
+        
+    def forward(self,x):
+        x=self.bn(x)
+        x=self.relu(x)
+        x=self.conv(x)
+        return x
+
+
+class DisBlock(nn.Module):
+    def __init__(self,in_channels,num_features,dis_size,downsample):
+        super(DisBlock,self).__init__()
+        self.in_channels=in_channels
+        self.num_features=num_features
+        self.dis_size=dis_size
+
+        self.conv=nn.Conv2d(self.in_channels,self.num_features,1,1,'same')
+        if downsample==True:
+            self.downsample1=nn.AvgPool2d(kernel_size=2, stride=2)
+            self.downsample2=nn.AvgPool2d(kernel_size=2,stride=2)
+        else:
+            self.downsample1=None
+            self.downsample2=None
+        self.bn_relu_conv=nn.Sequential(
+            Dis_BN_Relu_Conv(self.in_channels,self.num_features),
+            Dis_BN_Relu_Conv(self.num_features,self.num_features)
+        )
+    def forward(self,x):
+        x1=self.conv(x)
+        if self.downsample1!=None:
+            x1=self.downsample1(x1)
+        x2=self.bn_relu_conv(x)
+        if self.downsample2!=None:
+            x2=self.downsample2(x2)
+        x3=x1+x2
+        return x3
+
+
+
+
+class Discriminator_cifar10(nn.Module):
+    def __init__(self,num_features=192,dis_size=32,
+                 embed_size=192,device="cpu"):
+        super(Discriminator_cifar10,self).__init__()
+        self.num_features=num_features
+        self.dis_size=dis_size
+        self.embed_size=embed_size
+        self.device=device
+        
+        self.embed=nn.Embedding(10,self.embed_size).to(self.device)
+        self.dis_block0=DisBlock(3,self.num_features,self.dis_size,True).to(self.device)
+        self.dis_block1=DisBlock(self.num_features,self.num_features,self.dis_size//2,True).to(self.device)
+        self.dis_block2=DisBlock(self.num_features,self.num_features,self.dis_size//4,False).to(self.device)
+        self.dis_block3=DisBlock(self.num_features,self.num_features,self.dis_size//4,False).to(self.device)                              
+                                    
+        self.relu=nn.ReLU().to(self.device)
+        self.linear1=nn.Sequential(nn.Linear(self.num_features,self.num_features),nn.ReLU()).to(self.device)
+        self.linear2=nn.Linear(self.num_features,1).to(self.device)
+        
+    def forward(self,x,y):
+        x=x.to(self.device)
+        y=y.to(self.device)
+        y=self.embed(y)
+        x=self.dis_block0(x)
+        x=self.dis_block1(x)
+        x=self.dis_block2(x)
+        x=self.dis_block3(x)
+        x=self.relu(x)
+        x=x.sum(dim=(2, 3))
+        x=self.linear1(x)
+        x=x+x*y
+        x=self.linear2(x)
+        return x
+
+def loss_function(recon_x,x,mean,logstd,device):
+    MSECriterion = nn.MSELoss().to(device)
+    MSE = MSECriterion(recon_x,x)
+    logvar = 2 * logstd
+    KLD = KLD = -0.5 * torch.sum(1 + logvar - torch.pow(mean, 2) - torch.exp(logvar))
+    return MSE+KLD
+
+        
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # class Decoder_cifar10(nn.Module):
