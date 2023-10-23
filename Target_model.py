@@ -43,3 +43,10 @@ class VGG_19(nn.Module):
         self.model.classifier[6]=nn.Linear(num_features,num_classes)
     def forward(self,x):
         return self.model(x)
+
+class Densenet169(nn.Module):
+    def __init__(self,num_classes):
+        super(Densenet169,self).__init__()
+        self.model=models.densenet169(pretrained=False,num_classes=num_classes)
+    def forward(self,x):
+        return self.model(x)

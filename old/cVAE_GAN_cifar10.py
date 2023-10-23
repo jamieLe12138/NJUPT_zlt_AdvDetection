@@ -10,7 +10,7 @@ class EncoderBlock(nn.Module):
         self.block =nn.Sequential(
                     nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding),
                     nn.BatchNorm2d(out_channels),
-                    nn.LeakyReLU(0.2)
+                    nn.ReLU()
         ) 
     def forward(self, x):
         return self.block(x)
@@ -19,7 +19,7 @@ class ConditionalBatchNorm2d(nn.Module):
     def __init__(self, num_features, num_conditions):
         super(ConditionalBatchNorm2d, self).__init__()
         self.num_features = num_features
-        self.bn = nn.BatchNorm2d(num_features, affine=False)  # Disable affine transformation
+        self.bn = nn.BatchNorm2d(num_features,eps=1e-4, momentum=0.1, affine=True )  
         self.gamma_embed = nn.Linear(num_conditions, num_features)
         self.beta_embed = nn.Linear(num_conditions, num_features)
 
@@ -46,30 +46,32 @@ class Encoder_cifar10(nn.Module):
         self.device=device
         # 定义编码器
         self.encoder_conv = nn.Sequential(
-            EncoderBlock(3,64,3,1,'same'),
-            EncoderBlock(64,64,3,1,'same'),
-            EncoderBlock(64,128,3,1,'same'),
-            EncoderBlock(128,128,3,1,'same'),
-            EncoderBlock(128,256,3,1,'same'),
-            EncoderBlock(256,256,3,1,'same'),
-            EncoderBlock(256,512,3,1,'same'),
-            EncoderBlock(512,512,3,1,'same'),
-            nn.Flatten(),
-            nn.Linear(512*32*32,128),
-            nn.LeakyReLU(0.2)
+            nn.Conv2d(3,64,4,2,1),
+            nn.ReLU(),
+            EncoderBlock(64,128,4,2,1),
+            EncoderBlock(128,256,4,2,1),
+            nn.Conv2d(256,80,4,2,0),
+            nn.Flatten()
         ).to(self.device)
-        self.encoder_fc1=nn.Linear(128,z_dimension).to(self.device)
-        self.encoder_fc2=nn.Linear(128,z_dimension).to(self.device)
-    def noise_reparameterize(self,mean,logvar):
-        eps = torch.randn(mean.shape).to(self.device)
-        z = mean + eps * torch.exp(logvar)
-        return z
+        self.encoder_fc=nn.Linear(80,z_dimension).to(self.device)
     def forward(self,x):
-        out1, out2 = self.encoder_conv(x), self.encoder_conv(x)
-        mean = self.encoder_fc1(out1).to(self.device)
-        logstd = self.encoder_fc2(out2).to(self.device)
-        z = self.noise_reparameterize(mean, logstd)
-        return z,mean,logstd
+        z=self.encoder_conv(x)
+        z=self.encoder_fc(z)
+        return z
+
+    
+    #     self.encoder_fc1=nn.Linear(80,z_dimension).to(self.device)
+    #     self.encoder_fc2=nn.Linear(80,z_dimension).to(self.device)
+    # def noise_reparameterize(self,mean,logvar):
+    #     eps = torch.randn(mean.shape).to(self.device)
+    #     z = mean + eps * torch.exp(logvar)
+    #     return z
+    # def forward(self,x):
+    #     out1, out2 = self.encoder_conv(x), self.encoder_conv(x)
+    #     mean = self.encoder_fc1(out1).to(self.device)
+    #     logstd = self.encoder_fc2(out2).to(self.device)
+    #     z = self.noise_reparameterize(mean, logstd)
+    #     return z,mean,logstd
 
 class Decoder_Conv_CBN(nn.Module):
     def __init__(self,gen_size,num_features,embed_size,chunksize):
@@ -267,12 +269,19 @@ class Discriminator_cifar10(nn.Module):
         x=self.linear2(x)
         return x
 
+
 def loss_function(recon_x,x,mean,logstd,device):
     MSECriterion = nn.MSELoss().to(device)
     MSE = MSECriterion(recon_x,x)
     logvar = 2 * logstd
-    KLD = KLD = -0.5 * torch.sum(1 + logvar - torch.pow(mean, 2) - torch.exp(logvar))
+    KLD = -0.5 * torch.sum(1 + logvar - torch.pow(mean, 2) - torch.exp(logvar))
     return MSE+KLD
+
+def myloss_function(recon_x,x,device):
+    # MSECriterion = nn.MSELoss().to(device)
+    # MSE = MSECriterion(recon_x,x)
+    l2=F.pairwise_distance(recon_x,x)
+    return l2
 
         
 
