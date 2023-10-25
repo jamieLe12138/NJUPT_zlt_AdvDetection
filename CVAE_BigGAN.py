@@ -30,16 +30,32 @@ class Encoder_cifar10(nn.Module):
         ).to(self.device)
         self.encoder_fc1=nn.Linear(80,z_dimension).to(self.device)
         self.encoder_fc2=nn.Linear(80,z_dimension).to(self.device)
-    def noise_reparameterize(self,mean,logvar):
-        eps = torch.randn(mean.shape).to(self.device)
-        z = mean + eps * torch.exp(logvar)
-        return z
     def forward(self,x):
-        out1, out2 = self.encoder_conv(x), self.encoder_conv(x)
-        mean = self.encoder_fc1(out1.view(out1.shape[0], -1))
-        logstd = self.encoder_fc2(out2.view(out2.shape[0], -1))
-        z = self.noise_reparameterize(mean, logstd)
-        return z,mean,logstd
+        z=self.encoder_conv(x)
+        return z
+class VAE(nn.Module):
+	def __init__(self):
+		super(VAE, self).__init__()
+		self.isize = 32
+		self.nz = 80
+		self.nc = 3
+		self.device ="cuda" 
+		
+		self.z_mean_calc = nn.Linear(self.nz, self.nz)  # 多加一层表示每个独立z的均值 可以不初始化
+		self.z_log_var_calc = nn.Linear(self.nz, self.nz)  # 多加一层表示每个独立z的方差 可以不初始化
+	def forward(self, input):
+		z_mean = self.z_mean_calc(input.view(-1, self.nz))
+		z_log_var = self.z_log_var_calc(input.view(-1, self.nz))
+		#继续传播的部分
+		z_mean_0 = z_mean #* stamp
+		z_log_var_0 = z_log_var #* stamp
+		epsilon = torch.randn(size=(z_mean_0.view(-1,self.nz).shape[0], self.nz)).to(self.device) #Sampling
+		latent_i_star = z_mean_0 + torch.exp(z_log_var_0 / 2) * epsilon  #Sampling
+		#组合在一起返回
+		z_mean_ret =  z_mean_0 
+		z_log_var_ret =  z_log_var_0 
+		 
+		return z_mean_ret,z_log_var_ret,latent_i_star.type(torch.cuda.FloatTensor)  
     
 class GenBlock(nn.Module):
     def __init__(self, in_channels, out_channels, g_spectral_norm, activation_fn, conditional_bn, z_dims_after_concat):
