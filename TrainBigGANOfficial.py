@@ -18,12 +18,11 @@ import torch.backends.cudnn as cudnn
 from torchvision import transforms
 from torchvision import datasets
 from torchvision import transforms		
-
+from data_utils.load_dataset import *
 import torch.optim as optim
 from torchvision.utils import save_image
 from torchvision.utils import make_grid
-from torch.utils.data import Subset
-
+from torch.utils.data import DataLoader
 from biggan_utils import *
 from CVAE_BigGAN import Encoder_cifar10,Generator_cifar10,Discriminator_cifar10,VAE
 import losses
@@ -36,23 +35,23 @@ if not os.path.exists('./img_CVAE-GAN_Cifar10'):
 # GPU
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 batch_size =128
-num_epoch = 20
 z_dimension=80
 
-img_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-cifar10 = datasets.CIFAR10(
-    root="E:/Project/ModelAndDataset/data", train=True, transform=img_transform, download=True
-)
-# 创建一个包含前6400张图像的子集
-subset_indices = range(12800)  # 选择所需数量的图像
-dataset = Subset(cifar10, subset_indices)
+train_dataset = LoadDataset("cifar10", "E:/Project/ModelAndDataset/data", train=True, download=True, resize_size=32,
+								random_flip=True)
+# img_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+# cifar10 = datasets.CIFAR10(
+#     root="E:/Project/ModelAndDataset/data", train=True, transform=img_transform, download=True
+# )
+# # 创建一个包含前6400张图像的子集
+# subset_indices = range(12800)  # 选择所需数量的图像
+# dataset = Subset(cifar10, subset_indices)
 
 # data loader 数据载入
-dataloader = torch.utils.data.DataLoader(
-    dataset=dataset, batch_size=batch_size, shuffle=True
-)
-train_iter=iter(dataloader)
+train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, pin_memory=True, drop_last=True)
+
+train_iter=iter(train_dataloader)
 # 初始化变分自编码器，分类器与判别器
 Encoder=Encoder_cifar10(device=device)
 Gen=Generator_cifar10(device=device)
@@ -62,9 +61,14 @@ Gen_ema=ema(Gen, Gen_copy,0.9999,1000)
 vae = VAE().to(device)
 
 #  ========================加载预训练模型  ==============================      
-# encoder.load_state_dict(torch.load('E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Encoder.pth'))
-# decoder.load_state_dict(torch.load('E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Decoder.pth'))
-# discriminator.load_state_dict(torch.load('E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Discriminator.pth'))
+Encoder.load_state_dict(torch.load('E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Encoder.pth'))
+Gen.load_state_dict(torch.load('E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Decoder.pth'))
+Dis.load_state_dict(torch.load('E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Discriminator.pth'))
+vae.load_state_dict(torch.load('E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Vae.pth'))
+# torch.save(Encoder.state_dict(), 'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Encoder.pth')
+# torch.save(vae.state_dict(), 'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Vae.pth')
+# torch.save(Gen.state_dict(),'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Decoder.pth')
+# torch.save(Dis.state_dict(),'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Discriminator.pth')
 
 if not os.path.exists('./img_CVAE-GAN_Cifar10'):
         os.mkdir('./img_CVAE-GAN_Cifar10')
@@ -86,7 +90,7 @@ Dis.train()
 Encoder.train()
 Gen.train()
 step_count=0
-total_step=200
+total_step=2000
 d_steps_per_iter=3
 g_steps_per_iter=1
 
@@ -104,7 +108,7 @@ while step_count <= total_step:
 		try:
 			real_images, real_labels = next(train_iter)
 		except StopIteration:
-			train_iter = iter(dataloader)
+			train_iter = iter(train_dataloader)
 			real_images, real_labels = next(train_iter)
 		real_images=real_images.to(device)
 		real_labels=real_labels.to(device)
@@ -161,7 +165,7 @@ while step_count <= total_step:
 			real_images, real_labels = next(train_iter)
 		except StopIteration:
 			# 如果没有更多的数据批次可用，重新初始化数据加载器并获取下一个数据批次
-			train_iter = iter(dataloader)
+			train_iter = iter(train_dataloader)
 			real_images, real_labels = next(train_iter)
 		real_images=real_images.to(device)
 		real_labels=real_labels.to(device)
@@ -205,15 +209,15 @@ while step_count <= total_step:
 			Gen_ema.update(step_count)
 
 	step_count=step_count+1		
-	if (step_count+1)%5==0:
-		train_iter = iter(dataloader)
+	if (step_count+1)%50==0:
+		train_iter = iter(train_dataloader)
 		real_images, real_labels = next(train_iter)
 		real_images0=real_images.cpu()
 		make_grid(real_images0, nrow=8, normalize=True).detach()
 		save_image(real_images, './img_CVAE-GAN_Cifar10/real_images{}.png'.format(step_count+1)) 
 		z= Encoder(real_images.to(device))
 		output = Gen(z,real_labels)
-		fake_images = make_grid(output.cpu(), nrow=16, normalize=True).detach()
+		fake_images = make_grid(output.cpu(), nrow=8, normalize=True).detach()
 		save_image(fake_images, './img_CVAE-GAN_Cifar10/fake_images-{}.png'.format(step_count + 1))
 torch.save(Encoder.state_dict(), 'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Encoder.pth')
 torch.save(vae.state_dict(), 'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Vae.pth')
