@@ -225,7 +225,7 @@ while step_count <= total_step:
 		torch.save(Gen.state_dict(),'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Decoder.pth')
 		torch.save(Dis.state_dict(),'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Discriminator.pth')
 
-	
+
 
 				
 
