@@ -37,7 +37,7 @@ class CNN_MNIST(nn.Module):
 class VGG_19(nn.Module):
     def __init__(self,num_classes):
         super(VGG_19,self).__init__()
-        self.model=models.vgg19(pretrained=True)
+        self.model=models.vgg19(pretrained=False)
         # 修改VGG19的最后一层以适应指定的类别数
         num_features=self.model.classifier[6].in_features
         self.model.classifier[6]=nn.Linear(num_features,num_classes)
@@ -50,3 +50,16 @@ class Densenet169(nn.Module):
         self.model=models.densenet169(pretrained=False,num_classes=num_classes)
     def forward(self,x):
         return self.model(x)
+    
+class ResNet18(nn.Module):
+    def __init__(self,num_classes):
+        super(ResNet18,self).__init__()
+        self.model=models.resnet18(pretrained=False)
+        # 获取 ResNet-18 模型的最后一层
+        num_features = self.model.fc.in_features
+        # 替换最后一层全连接层
+        self.model.fc = nn.Linear(num_features, num_classes)
+    def forward(self,x):
+        return self.model(x)
+    
+

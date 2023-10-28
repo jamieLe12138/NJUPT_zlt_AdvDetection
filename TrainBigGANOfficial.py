@@ -23,12 +23,12 @@ import torch.optim as optim
 from torchvision.utils import save_image
 from torchvision.utils import make_grid
 from torch.utils.data import DataLoader
-from biggan_utils import *
-from CVAE_BigGAN import Encoder_cifar10,Generator_cifar10,Discriminator_cifar10,VAE
-import losses
-from Misc import *
-from diff_aug import *
-import pytorch_ssim as ssim_package
+from studioGAN.biggan_utils import *
+from studioGAN.CVAE_BigGAN import Encoder_cifar10,Generator_cifar10,Discriminator_cifar10,VAE
+import studioGAN.losses as losses
+from studioGAN.Misc import *
+from studioGAN.diff_aug import *
+import studioGAN.pytorch_ssim as ssim_package
 # 创建文件夹
 if not os.path.exists('./img_CVAE-GAN_Cifar10'):
     os.mkdir('./img_CVAE-GAN_Cifar10')
@@ -219,10 +219,12 @@ while step_count <= total_step:
 		output = Gen(z,real_labels)
 		fake_images = make_grid(output.cpu(), nrow=8, normalize=True).detach()
 		save_image(fake_images, './img_CVAE-GAN_Cifar10/fake_images-{}.png'.format(step_count + 1))
-torch.save(Encoder.state_dict(), 'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Encoder.pth')
-torch.save(vae.state_dict(), 'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Vae.pth')
-torch.save(Gen.state_dict(),'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Decoder.pth')
-torch.save(Dis.state_dict(),'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Discriminator.pth')
+	if(step_count+1)%200==0:
+		torch.save(Encoder.state_dict(), 'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Encoder.pth')
+		torch.save(vae.state_dict(), 'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Vae.pth')
+		torch.save(Gen.state_dict(),'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Decoder.pth')
+		torch.save(Dis.state_dict(),'E:/Project/ModelAndDataset/model/CVAE-GAN-Cifar10-Discriminator.pth')
+
 	
 
 				

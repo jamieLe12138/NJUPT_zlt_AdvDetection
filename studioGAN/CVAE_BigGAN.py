@@ -1,4 +1,4 @@
-from Model_Options import *
+from .Model_Options import *
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

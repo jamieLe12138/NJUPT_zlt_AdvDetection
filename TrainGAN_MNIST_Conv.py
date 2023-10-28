@@ -3,8 +3,8 @@ import torch.autograd
 import torch.nn as nn
 from torchvision import transforms
 from torchvision import datasets
-from Discriminator_MNIST import discriminator_mnistConv
-from Generator_MNIST import generator_mnistConv
+from cVAE_GAN_MNIST.Discriminator_MNIST import discriminator_mnistConv
+from cVAE_GAN_MNIST.Generator_MNIST import generator_mnistConv
 from torchvision.utils import save_image
 # 创建文件夹
 if not os.path.exists('./img_CGAN_MNIST_Conv'):

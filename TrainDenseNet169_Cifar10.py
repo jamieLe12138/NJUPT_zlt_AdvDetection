@@ -1,7 +1,7 @@
 import torch.nn as nn
 from torchvision import transforms
 from torchvision import datasets
-from Target_model import Densenet169
+from Target_model.Target_model import Densenet169
 import torch
 #GPU
 device = 'cuda' if torch.cuda.is_available() else 'cpu'

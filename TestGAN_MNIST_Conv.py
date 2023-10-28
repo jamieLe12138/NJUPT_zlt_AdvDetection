@@ -7,7 +7,7 @@ from torchvision.utils import  make_grid
 import matplotlib.pyplot as plt
 import numpy as np
 from torchvision.utils import save_image
-from Generator_MNIST import generator_mnistConv
+from cVAE_GAN_MNIST.Generator_MNIST import generator_mnistConv
 import os
 batch_size=128
 # GPU

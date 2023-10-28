@@ -1,6 +1,6 @@
 import torch
 from torchvision import datasets, transforms
-from Target_model import MLP_MNIST
+from Target_model.Target_model import MLP_MNIST
 import torch.nn as nn
 # 定义数据转换
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])

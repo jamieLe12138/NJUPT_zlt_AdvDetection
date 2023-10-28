@@ -1,6 +1,6 @@
 import torch
 from torchvision import datasets, transforms
-from Target_model import CNN_MNIST
+from Target_model.Target_model import CNN_MNIST
 import torch.nn as nn
 #GPU
 device = 'cuda' if torch.cuda.is_available() else 'cpu'

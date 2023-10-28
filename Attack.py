@@ -1,6 +1,6 @@
 import art
 from art.attacks.evasion import FastGradientMethod
-from Target_model import MLP_MNIST
+from Target_model.Target_model import MLP_MNIST
 from torchvision import datasets
 import torch
 import torch.nn as nn

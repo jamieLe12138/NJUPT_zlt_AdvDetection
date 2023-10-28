@@ -8,8 +8,8 @@ import torch.optim as optim
 from torchvision.utils import save_image
 from torchvision.utils import make_grid
 from torch.utils.data import Subset
-from CVAE_BigGAN import Encoder_cifar10,Generator_cifar10,Discriminator_cifar10
-import losses
+from studioGAN.CVAE_BigGAN import Encoder_cifar10,Generator_cifar10,Discriminator_cifar10
+import studioGAN.losses as losses
 # 创建文件夹
 if not os.path.exists('./img_CVAE-GAN_Cifar10'):
     os.mkdir('./img_CVAE-GAN_Cifar10')
