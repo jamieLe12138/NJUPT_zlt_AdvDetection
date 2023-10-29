@@ -10,7 +10,6 @@ from Target_model import Target_model
 
 #GPU
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-import torch
 from dataload import CELEBA,get_one_hot_label
 
 

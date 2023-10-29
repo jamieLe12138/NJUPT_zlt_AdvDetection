@@ -16,6 +16,51 @@ matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
 from time import time
+class CELEBA_Attack(data.Dataset):
+    def __init__(self,root,adv,attackMethod,eps,model,label,transform):
+        self.root =root
+        self.adv =adv
+        self.attackMethod=attackMethod
+        self.eps=eps
+        self.model=model
+        self.label=label
+        self.transform=transform
+        img_load_path=self.root
+        label_load_path=self.root
+        taskname=self.attackMethod+"_"+str(self.eps)+"_"+self.model+"_"+self.label
+        if self.adv:
+           img_load_path+="/AdvImage_"+taskname+".npy"
+           label_load_path+="/AdvLabel_"+taskname+".npy"
+        else:
+           img_load_path+="/RawImage_"+taskname+".npy"
+           label_load_path+="/RawLabel_"+taskname+".npy"
+        print('Load images from:',img_load_path)
+        print('Load labels from:',label_load_path)
+        self.data=np.load(img_load_path, mmap_mode='r')
+        self.data=self.data.transpose((0, 2, 3, 1))
+
+        self.labels=np.load(label_load_path)
+    def __getitem__(self, index):
+        
+        img= self.data[index]
+        target= self.labels[index]
+        # doing this so that it is consistent with all other datasets
+        # to return a PIL Image
+        print(img.shape)
+        print(type(img))
+        print(target.shape)
+        print(type(target))
+        img = Image.fromarray((img* 255).astype('uint8'))
+
+        if self.transform is not None:
+            img = self.transform(img)
+        target = target.astype(int)
+
+        return img, target
+
+    def __len__(self):
+        return len(self.data)
+
 
 
 class CELEBA(data.Dataset):
@@ -35,31 +80,41 @@ class CELEBA(data.Dataset):
     """
 
 
-    def __init__(self, root, train=True, transform=None, label='Smiling'):
+    def __init__(self, root, train=True,train_ratio=0.7,transform=None, label='Smiling'):
         attributes = ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin', 'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones', 'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard', 'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline', 'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie', 'Young']
 
-        self.root = os.path.expanduser(root)
+        self.root = root
         self.train = train  # training set or test set
         self.filename='celebA'
         self.transform=transform
         self.idx = attributes.index(label)
-        print (self.idx)
-
+        print(self.idx)
         # now load the picked numpy arrays
+        data_all=np.load(join(self.root, self.filename, 'xTrain.npy'), mmap_mode='r')
+        data_size=len(data_all)
+
+        if train==True:
+            self.size=int(train_ratio*data_size)
+            print('Load Train dataset:',self.size)
+        else:
+            self.size=data_size-int(train_ratio*data_size)
+            print('Load Test dataset:',self.size)
+        
+        label_all=np.load(join(self.root, self.filename, 'yAllTrain.npy'))[:,self.idx]
         if self.train:
-            self.train_data = np.load(join(self.root, self.filename, 'xTrain.npy'), mmap_mode='r')[100:]
+            self.train_data = data_all[:int(train_ratio*data_size)]
             self.train_data = self.train_data.transpose((0, 2, 3, 1))  # convert to HWC
-            train_labels = np.load(join(self.root, self.filename, 'yAllTrain.npy'))[100:, self.idx]
+            train_labels = label_all[:int(train_ratio*data_size)]
             self.train_labels = (train_labels.astype(int)+1) // 2
-            print(np.shape(self.train_labels), np.shape(self.train_data)) 
-            print(np.unique(self.train_labels)) 
+            # print(np.shape(self.train_labels), np.shape(self.train_data)) 
+            # print(np.unique(self.train_labels)) 
 
         else:
-            self.test_data = np.load(join(self.root, self.filename, 'xTrain.npy'), mmap_mode='r')[:100]
+            self.test_data =data_all[int(train_ratio*data_size):]
             self.test_data = self.test_data.transpose((0, 2, 3, 1))  # convert to HWC
-            test_labels = np.load(join(self.root, self.filename, 'yAllTrain.npy'))[:100, self.idx]
+            test_labels = label_all[int(train_ratio*data_size):]
             self.test_labels = (test_labels.astype(int)+1) // 2
-
+ 
 
     def __getitem__(self, index):
         """
