@@ -17,23 +17,23 @@ from matplotlib import pyplot as plt
 
 from time import time
 class CELEBA_Attack(data.Dataset):
-    def __init__(self,root,adv,attackMethod,eps,model,label,transform):
+    def __init__(self,root,adv,attackMethod,model,label,transform):
         self.root =root
         self.adv =adv
         self.attackMethod=attackMethod
-        self.eps=eps
         self.model=model
         self.label=label
         self.transform=transform
         img_load_path=self.root
         label_load_path=self.root
-        taskname=self.attackMethod+"_"+str(self.eps)+"_"+self.model+"_"+self.label
+        self.taskname=self.attackMethod+"_"+self.model+"_"+self.label
+
         if self.adv:
-           img_load_path+="/AdvImage_"+taskname+".npy"
-           label_load_path+="/AdvLabel_"+taskname+".npy"
+           img_load_path+="/AdvImage_"+self.taskname+".npy"
+           label_load_path+="/AdvLabel_"+self.taskname+".npy"
         else:
-           img_load_path+="/RawImage_"+taskname+".npy"
-           label_load_path+="/RawLabel_"+taskname+".npy"
+           img_load_path+="/RawImage_"+self.taskname+".npy"
+           label_load_path+="/RawLabel_"+self.taskname+".npy"
         print('Load images from:',img_load_path)
         print('Load labels from:',label_load_path)
         self.data=np.load(img_load_path, mmap_mode='r')
@@ -46,10 +46,10 @@ class CELEBA_Attack(data.Dataset):
         target= self.labels[index]
         # doing this so that it is consistent with all other datasets
         # to return a PIL Image
-        print(img.shape)
-        print(type(img))
-        print(target.shape)
-        print(type(target))
+        # print(img.shape)
+        # print(type(img))
+        # print(target.shape)
+        # print(type(target))
         img = Image.fromarray((img* 255).astype('uint8'))
 
         if self.transform is not None:
@@ -60,9 +60,6 @@ class CELEBA_Attack(data.Dataset):
 
     def __len__(self):
         return len(self.data)
-
-
-
 class CELEBA(data.Dataset):
     """
     Args:
@@ -154,11 +151,10 @@ class CELEBA(data.Dataset):
         assert os.path.exists(join(inDir, 'xTrain.npy'))
         assert os.path.exists(join(inDir, 'yAllTrain.npy'))
 import math
-def drawCelebAImages(imgs,labels,label_name,img_num=64,num_rows=8,show=False):
-    matplotlib.use('TkAgg') 
-    num_rows = 8
+def drawCelebAImages(imgs,labels,label_name,save_path,img_num=64,num_rows=8,show=False):
+    # matplotlib.use('TkAgg') 
     num_lines = math.ceil(img_num / num_rows)  # 使用math.ceil确保不为整数时向上取整
-    fig, axes = plt.subplots(num_lines, num_rows, figsize=(img_num *1 , 3))
+    fig, axes = plt.subplots(num_lines, num_rows, figsize=(64 , 64))
     labels_name = ["not_"+label_name, label_name]
     for i in range(img_num):
         image = imgs[i]
@@ -170,10 +166,11 @@ def drawCelebAImages(imgs,labels,label_name,img_num=64,num_rows=8,show=False):
         col = i % num_rows
 
         axes[row, col].imshow(img)
-        axes[row, col].set_title(f"Label: {label}",fontsize=10)
+        axes[row, col].set_title(f"Label: {label}",fontsize=25)
         axes[row, col].axis('off')
     if show:
         plt.show()
+    plt.savefig(save_path)
 import torch
 def get_one_hot_label(labels,num_classes=2):
     #shape(batch_size,1)

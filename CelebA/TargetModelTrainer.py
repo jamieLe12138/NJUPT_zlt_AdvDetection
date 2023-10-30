@@ -74,8 +74,8 @@ def train_CelebA_target_model(root,save_dir,attr_name,
         model.eval()
         correct = 0
         total = 0
-        maxAcc_count=0
-        max_acc=0
+        # maxAcc_count=0
+        # max_acc=0
         for images, labels in test_Loader:
             images=images.to(device)
             outputs = model(images).cpu()
@@ -85,17 +85,12 @@ def train_CelebA_target_model(root,save_dir,attr_name,
         accuracy = 100 * correct / total
         print(f'Accuracy on test data: {accuracy:.2f}%,{correct}')
         
-        if accuracy>max_acc:
-            max_acc=accuracy
-            maxAcc_count=0
-        else:
-            maxAcc_count+=1
-        #训练精度到达90%以上或精度开始下降，停止训练
-        if accuracy>90 and maxAcc_count==1 :
+        #训练精度到达95%以上停止训练
+        if accuracy>95 :
             break
-        elif accuracy>87 and accuracy<=90 and maxAcc_count==2 :
-            break 
-        elif maxAcc_count>=3:
+        elif accuracy>90 and accuracy<=95 and epoch>=3:
+            break
+        elif accuracy>87 and accuracy<=90 and epoch>5:
             break
 
     if save:
