@@ -153,7 +153,7 @@ class CELEBA(data.Dataset):
 import math
 def drawCelebAImages(imgs,labels,label_name,save_path,img_num=64,num_rows=8,show=False):
     # matplotlib.use('TkAgg') 
-    if os.path.exists(save_path):
+    if os.path.exists(save_path)==False:
         num_lines = math.ceil(img_num / num_rows)  # 使用math.ceil确保不为整数时向上取整
         fig, axes = plt.subplots(num_lines, num_rows, figsize=(64 , 64))
         labels_name = ["not_"+label_name, label_name]

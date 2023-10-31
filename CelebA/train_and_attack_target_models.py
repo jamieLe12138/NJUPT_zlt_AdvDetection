@@ -119,12 +119,12 @@ for model_name in model_names:
                 drawCelebAImages(advdata,advlabel,
                             attr_name,
                             show=False,
-                            save_path="/Project/ZLTProgram/CelebA/Attack_result/AdvImg_"\
+                            save_path="E:/Project/ZLTProgram/CelebA/Attack_result/Adv"\
                             +adv_example_dataset.taskname+".png")
                 drawCelebAImages(rawdata,rawlabel,
                             attr_name,
                             show=False,
-                            save_path="/Project/ZLTProgram/CelebA/Attack_result/RawImg_"\
+                            save_path="E:/Project/ZLTProgram/CelebA/Attack_result/Raw"\
                             +raw_example_dataset.taskname+".png"
                             )
             except:
