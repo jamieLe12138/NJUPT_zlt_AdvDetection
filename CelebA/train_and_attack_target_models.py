@@ -67,9 +67,15 @@ for model_name in model_names:
                label=attr_name,
                )
         clip_values = (0.0, 1.0)
+        if model_name=='resnet18' or model_name=='densenet169':
+            optimizer = torch.optim.Adam(target_model.parameters(), lr=0.001)
+        elif model_name=='vgg19':
+            optimizer = torch.optim.SGD(target_model.parameters(), lr=0.0005, momentum=0.90)
+        else:
+            optimizer =torch.optim.RMSprop(target_model.parameters(),lr=0.001)
         estimator=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
-                            optimizer = torch.optim.Adam(target_model.parameters(), lr=0.001),
-                            input_shape=(3,64,64), nb_classes=2,clip_values=clip_values)
+                                    optimizer=optimizer,
+                                    input_shape=(3,64,64), nb_classes=2,clip_values=clip_values)
         Attack_Methods=[FastGradientMethod(estimator=estimator,eps=0.05),
                         BasicIterativeMethod(estimator=estimator,eps=0.05),
                         ProjectedGradientDescent(estimator=estimator,eps=0.05),
