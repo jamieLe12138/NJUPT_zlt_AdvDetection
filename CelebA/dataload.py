@@ -153,24 +153,27 @@ class CELEBA(data.Dataset):
 import math
 def drawCelebAImages(imgs,labels,label_name,save_path,img_num=64,num_rows=8,show=False):
     # matplotlib.use('TkAgg') 
-    num_lines = math.ceil(img_num / num_rows)  # 使用math.ceil确保不为整数时向上取整
-    fig, axes = plt.subplots(num_lines, num_rows, figsize=(64 , 64))
-    labels_name = ["not_"+label_name, label_name]
-    for i in range(img_num):
-        image = imgs[i]
-        label = labels_name[labels[i].item()]
-        img = np.transpose(image, (1, 2, 0))  # 重新排列通道维度为 (H, W, C)
+    if os.path.exists(save_path):
+        num_lines = math.ceil(img_num / num_rows)  # 使用math.ceil确保不为整数时向上取整
+        fig, axes = plt.subplots(num_lines, num_rows, figsize=(64 , 64))
+        labels_name = ["not_"+label_name, label_name]
+        for i in range(img_num):
+            image = imgs[i]
+            label = labels_name[labels[i].item()]
+            img = np.transpose(image, (1, 2, 0))  # 重新排列通道维度为 (H, W, C)
 
-        # 计算子图的行号和列号
-        row = i // num_rows
-        col = i % num_rows
+            # 计算子图的行号和列号
+            row = i // num_rows
+            col = i % num_rows
 
-        axes[row, col].imshow(img)
-        axes[row, col].set_title(f"Label: {label}",fontsize=25)
-        axes[row, col].axis('off')
-    if show:
-        plt.show()
-    plt.savefig(save_path)
+            axes[row, col].imshow(img)
+            axes[row, col].set_title(f"Label: {label}",fontsize=25)
+            axes[row, col].axis('off')
+        if show:
+            plt.show()
+        plt.savefig(save_path)
+    else:
+        print("Image {} exists.".format(save_path))
 import torch
 def get_one_hot_label(labels,num_classes=2):
     #shape(batch_size,1)

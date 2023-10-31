@@ -27,7 +27,7 @@ model_names=[
              'densenet169',
              'mobilenet'
              ]
-attr_names = ['Eyeglasses','Chubby','Male','Smiling','Wearing_Hat','Young']
+attr_names = ['Eyeglasses','Wearing_Earrings','Male','Smiling','Wearing_Hat','Young']
 
 batch_size=64
 # 定义数据转换
@@ -112,20 +112,24 @@ for model_name in model_names:
                                   transform=transform)
             
             adv_data_loader=torch.utils.data.DataLoader(adv_example_dataset,batch_size=64)
-            advdata,advlabel=next(iter(adv_data_loader))
             raw_data_loader=torch.utils.data.DataLoader(raw_example_dataset,batch_size=64)
-            rawdata,rawlabel=next(iter(raw_data_loader))
-            drawCelebAImages(advdata,advlabel,
+            try:
+                advdata,advlabel=next(iter(adv_data_loader))
+                rawdata,rawlabel=next(iter(raw_data_loader))
+                drawCelebAImages(advdata,advlabel,
                             attr_name,
                             show=False,
                             save_path="/Project/ZLTProgram/CelebA/Attack_result/AdvImg_"\
                             +adv_example_dataset.taskname+".png")
-            drawCelebAImages(rawdata,rawlabel,
+                drawCelebAImages(rawdata,rawlabel,
                             attr_name,
                             show=False,
                             save_path="/Project/ZLTProgram/CelebA/Attack_result/RawImg_"\
                             +raw_example_dataset.taskname+".png"
                             )
+            except:
+                print("AdvImage Number Error!")
+                continue
 
 
     
