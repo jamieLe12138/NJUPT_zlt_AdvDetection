@@ -93,11 +93,25 @@ def train_CelebA_target_model(root,save_dir,attr_name,
         
             #训练精度到达95%以上停止训练
             if accuracy>95 :
+                print("Current Accuracy is up to 95%,stop trainning")
                 break
-            elif accuracy>90 and accuracy<=95 and epoch>=3:
-                break
-            elif accuracy>87 and accuracy<=90 and epoch>5:
-                break
+
+            if accuracy>90 and accuracy<=95 :
+                if epoch>=3:
+                    print("Current Accuracy is up to 90% ,current epoch is {},stop trainning".format(epoch))
+                    break
+                else:
+                    print("Current Accuracy is up to 90% ,current epoch is {},continue trainning".format(epoch))
+
+            if accuracy>86 and accuracy<=90 :
+                if epoch>5:
+                    print("Current Accuracy is up to 86% ,current epoch is {},stop trainning".format(epoch))
+                    break
+                else:
+                    print("Current Accuracy is up to 86% ,current epoch is {},continue trainning".format(epoch))
+
+            if accuracy<86:
+                print("Current Accuracy too low,current epoch is {},continue trainning".format(epoch))
 
         if save:
             torch.save(model.state_dict(),save_path)
