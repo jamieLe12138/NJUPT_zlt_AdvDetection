@@ -81,11 +81,8 @@ def save_input_args(exDir, opts):
 	f.write(saveOpts)
 	f.close()
 
-def sample_z(batch_size, nz, useCUDA):
-	if useCUDA:
-		return Variable(torch.randn(batch_size, nz).cuda())
-	else:
-		return Variable(torch.randn(batch_size, nz))
+def sample_z(batch_size, nz,device):
+	return Variable(torch.randn(batch_size, nz).to(device))
 
 def label_switch(x,y,cvae,exDir=None):
 	print ('switching label...')
