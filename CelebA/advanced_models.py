@@ -9,25 +9,33 @@ import numpy as np
 
 import os
 from os.path import join
-
+from model_options import snconv2d,sndeconv2d,snlinear,Self_Attn
 
 class DISCRIMINATOR(nn.Module):
 
-	def __init__(self, imSize, fSize=2, numLabels=1,device='cpu'):
+	def __init__(self, imSize, fSize=2, numLabels=1,d_spectral_norm=False,device='cpu',):
 		super(DISCRIMINATOR, self).__init__()
 		#define layers here
 		self.device=device
 		self.fSize = fSize
 		self.imSize = imSize
+		self.d_spectral_norm=d_spectral_norm
 
 		inSize = imSize // ( 2 ** 4)
 		self.numLabels = numLabels
+		if d_spectral_norm:
+			self.dis1=snconv2d(3, fSize, 5, stride=2, padding=2)
+			self.dis2=snconv2d(fSize, fSize * 2, 5, stride=2, padding=2)
+			self.dis3 = snconv2d(fSize * 2, fSize * 4, 5, stride=2, padding=2)
+			self.dis4 = snconv2d(fSize * 4, fSize * 8, 5, stride=2, padding=2)
+			self.dis5 = snlinear((fSize * 8) * inSize * inSize, numLabels)
 
-		self.dis1 = nn.Conv2d(3, fSize, 5, stride=2, padding=2)
-		self.dis2 = nn.Conv2d(fSize, fSize * 2, 5, stride=2, padding=2)
-		self.dis3 = nn.Conv2d(fSize * 2, fSize * 4, 5, stride=2, padding=2)
-		self.dis4 = nn.Conv2d(fSize * 4, fSize * 8, 5, stride=2, padding=2)
-		self.dis5 = nn.Linear((fSize * 8) * inSize * inSize, numLabels)
+		else:
+			self.dis1 = nn.Conv2d(3, fSize, 5, stride=2, padding=2)
+			self.dis2 = nn.Conv2d(fSize, fSize * 2, 5, stride=2, padding=2)
+			self.dis3 = nn.Conv2d(fSize * 2, fSize * 4, 5, stride=2, padding=2)
+			self.dis4 = nn.Conv2d(fSize * 4, fSize * 8, 5, stride=2, padding=2)
+			self.dis5 = nn.Linear((fSize * 8) * inSize * inSize, numLabels)
 	
 
 	def discriminate(self, x):
@@ -62,10 +70,10 @@ class DISCRIMINATOR(nn.Module):
 
 class CVAE(nn.Module):
 
-	def __init__(self, nz, imSize, fSize=2, numLabels=2,device='cpu'):
+	def __init__(self, nz, imSize, fSize=2, numLabels=2,g_spectral_norm=False,device='cpu'):
 		super(CVAE, self).__init__()
 		#define layers here
-
+		self.device=device
 		self.fSize = fSize
 		self.nz = nz
 		self.imSize = imSize
@@ -83,15 +91,25 @@ class CVAE(nn.Module):
 		self.encMu = nn.Linear((fSize * 8) * inSize * inSize, nz)
 		self.encY = nn.Linear((fSize * 8) * inSize * inSize, numLabels)
 
-		self.dec1 = nn.Linear(nz+numLabels, (fSize * 8) * inSize * inSize)
-		self.dec2 = nn.ConvTranspose2d(fSize * 8, fSize * 4, 3, stride=2, padding=1, output_padding=1)
-		self.dec2b = nn.BatchNorm2d(fSize * 4)
-		self.dec3 = nn.ConvTranspose2d(fSize * 4, fSize * 2, 3, stride=2, padding=1, output_padding=1)
-		self.dec3b = nn.BatchNorm2d(fSize * 2)
-		self.dec4 = nn.ConvTranspose2d(fSize * 2, fSize, 3, stride=2, padding=1, output_padding=1)
-		self.dec4b = nn.BatchNorm2d(fSize)
-		self.dec5 = nn.ConvTranspose2d(fSize, 3, 3, stride=2, padding=1, output_padding=1)
-		self.device=device
+		if g_spectral_norm:
+			self.dec1 = snlinear(nz+numLabels, (fSize * 8) * inSize * inSize)
+			self.dec2 = sndeconv2d(fSize * 8, fSize * 4, 3, stride=2, padding=1, output_padding=1)
+			self.dec2b = nn.BatchNorm2d(fSize * 4)
+			self.dec3 = nn.ConvTranspose2d(fSize * 4, fSize * 2, 3, stride=2, padding=1, output_padding=1)
+			self.dec3b = nn.BatchNorm2d(fSize * 2)
+			self.dec4 = nn.ConvTranspose2d(fSize * 2, fSize, 3, stride=2, padding=1, output_padding=1)
+			self.dec4b = nn.BatchNorm2d(fSize)
+			self.dec5 = nn.ConvTranspose2d(fSize, 3, 3, stride=2, padding=1, output_padding=1)
+		else:
+			self.dec1 = nn.Linear(nz+numLabels, (fSize * 8) * inSize * inSize)
+			self.dec2 = nn.ConvTranspose2d(fSize * 8, fSize * 4, 3, stride=2, padding=1, output_padding=1)
+			self.dec2b = nn.BatchNorm2d(fSize * 4)
+			self.dec3 = nn.ConvTranspose2d(fSize * 4, fSize * 2, 3, stride=2, padding=1, output_padding=1)
+			self.dec3b = nn.BatchNorm2d(fSize * 2)
+			self.dec4 = nn.ConvTranspose2d(fSize * 2, fSize, 3, stride=2, padding=1, output_padding=1)
+			self.dec4b = nn.BatchNorm2d(fSize)
+			self.dec5 = nn.ConvTranspose2d(fSize, 3, 3, stride=2, padding=1, output_padding=1)
+			
 
 	def encode(self, x):
 		#define the encoder here return mu(x) and sigma(x)

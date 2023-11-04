@@ -81,8 +81,8 @@ def save_input_args(exDir, opts):
 	f.write(saveOpts)
 	f.close()
 
-def sample_z(batch_size, nz,device):
-	return Variable(torch.randn(batch_size, nz).to(device))
+def sample_z(batch_size, nz):
+	return torch.randn(batch_size, nz)
 
 def label_switch(x,y,cvae,exDir=None):
 	print ('switching label...')
@@ -92,24 +92,24 @@ def label_switch(x,y,cvae,exDir=None):
 		x0 = x
 	else:
 		zeroIdx = torch.nonzero(y.data)
-		x0 = Variable(torch.index_select(x, dim=0, index=zeroIdx[:,0])).type_as(x)
+		x0 = torch.index_select(x, dim=0, index=zeroIdx[:,0]).type_as(x)
 
 	#get z
 	mu, logVar, y = cvae.encode(x0)
 	z = cvae.re_param(mu, logVar)
 
-	ySmile = Variable(torch.eye(2)[torch.LongTensor(np.ones(y.size(0), dtype=int))]).type_as(z)
-	smileSamples = cvae.decode(ySmile, z).cpu()
+	y_Positive = torch.eye(2)[torch.LongTensor(np.ones(y.size(0), dtype=int))].type_as(z)
+	positiveSamples = cvae.decode(y_Positive, z).cpu()
 	
 
-	yNoSmile = Variable(torch.eye(2)[torch.LongTensor(np.zeros(y.size(0), dtype=int))]).type_as(z)
-	noSmileSamples = cvae.decode(yNoSmile, z).cpu()
+	y_Negative = torch.eye(2)[torch.LongTensor(np.zeros(y.size(0), dtype=int))].type_as(z)
+	negativeSamples = cvae.decode(y_Negative, z).cpu()
 	
 	if exDir is not None:
 		print ('saving rec w/ and w/out label switch to', join(exDir,'rec_0.png'),'... ')
 		save_image(x0.data, join(exDir, 'original.png'))
-		save_image(smileSamples.data, join(exDir,'rec_1.png'))
-		save_image(noSmileSamples.data, join(exDir,'rec_0.png'))
+		save_image(positiveSamples.data, join(exDir,'rec_1.png'))
+		save_image(negativeSamples.data, join(exDir,'rec_0.png'))
 
 
 def label_switch_1(x,y,cvae,exDir=None): #when y is a unit not a vector
@@ -117,20 +117,20 @@ def label_switch_1(x,y,cvae,exDir=None): #when y is a unit not a vector
 	#get x's that have smile
 	print (type(x))
 	if (y.data == 0).all(): #if no samples with label 1 use all samples
-		x0 = Variable(x)
+		x0 = x
 	else:
 		zeroIdx = torch.nonzero(y.data)
-		x0 = Variable(torch.index_select(x, dim=0, index=zeroIdx[:,0])).type_as(x)
+		x0 = torch.index_select(x, dim=0, index=zeroIdx[:,0]).type_as(x)
 
 	#get z
 	mu, logVar, y = cvae.encode(x0)
 	z = cvae.re_param(mu, logVar)
 
-	ySmile = Variable(torch.LongTensor(np.ones(y.size(), dtype=int))).type_as(z)
+	ySmile = torch.LongTensor(np.ones(y.size(), dtype=int)).type_as(z)
 	smileSamples = cvae.decode(ySmile, z)
 	
 
-	yNoSmile = Variable(torch.LongTensor(np.zeros(y.size(), dtype=int))).type_as(z)
+	yNoSmile = torch.LongTensor(np.zeros(y.size(), dtype=int)).type_as(z)
 	noSmileSamples = cvae.decode(yNoSmile, z)
 	
 	if exDir is not None:
@@ -145,16 +145,16 @@ def soft_label_switch_1(x,y,cvae,exDir=None, l0=0, l1=1): #when y is a unit not 
 	print ('switching label...')
 	#get x's that have smile
 	zeroIdx = torch.nonzero(y.data)
-	x0 = Variable(torch.index_select(x, dim=0, index=zeroIdx[:,0])).type_as(x)
+	x0 = torch.index_select(x, dim=0, index=zeroIdx[:,0]).type_as(x)
 
 	#get z
 	mu, logVar, y = cvae.encode(x0)
 	z = cvae.re_param(mu, logVar)
 
-	ySmile = Variable(torch.Tensor(y.size()).fill_(l1)).type_as(z)
+	ySmile = torch.Tensor(y.size()).fill_(l1).type_as(z)
 	smileSamples = cvae.decode(ySmile, z)
 	
-	yNoSmile = Variable(torch.Tensor(y.size()).fill_(l0)).type_as(z)
+	yNoSmile =torch.Tensor(y.size()).fill_(l0).type_as(z)
 	noSmileSamples = cvae.decode(yNoSmile, z)
 	
 	if exDir is not None:
@@ -164,23 +164,23 @@ def soft_label_switch_1(x,y,cvae,exDir=None, l0=0, l1=1): #when y is a unit not 
 		save_image(noSmileSamples.cpu().data, join(exDir,'rec_'+str(l0)+'.png'))
 
 
-def prep_data(data, useCUDA):
-	x, y = data
-	if useCUDA:
-		x = Variable(x.cuda())
-		y = Variable(y.cuda()).view(y.size(0),1).type_as(x)
-	else:
-		x = Variable(x)
-		y = Variable(y).view(y.size(0),1).type_as(x)
-	return x,y
+# def prep_data(data, useCUDA):
+# 	x, y = data
+# 	if useCUDA:
+# 		x = Variable(x.cuda())
+# 		y = Variable(y.cuda()).view(y.size(0),1).type_as(x)
+# 	else:
+# 		x = Variable(x)
+# 		y = Variable(y).view(y.size(0),1).type_as(x)
+# 	return x,y
 
-def rand_one_hot(noSamples, noLabels, useCUDA):
+# def rand_one_hot(noSamples, noLabels, useCUDA):
 
-	y = Variable(torch.eye(noLabels)[torch.LongTensor(np.random.randint(0,noLabels,noSamples, dtype=int))]).type(torch.FloatTensor)
-	if useCUDA:
-		return y.cuda()
-	else:
-		return y
+# 	y = Variable(torch.eye(noLabels)[torch.LongTensor(np.random.randint(0,noLabels,noSamples, dtype=int))]).type(torch.FloatTensor)
+# 	if useCUDA:
+# 		return y.cuda()
+# 	else:
+# 		return y
 
 def binary_class_score(pred, target, thresh=0.5):
 	predLabel = torch.gt(pred, thresh)

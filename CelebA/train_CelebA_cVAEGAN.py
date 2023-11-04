@@ -2,7 +2,7 @@
 import sys
 sys.path.append("E:/Project/ZLTProgram/")
 
-from dataload import CELEBA
+from dataload import CELEBA,drawCelebAImages
 from function import make_new_folder, plot_losses, vae_loss_fn, save_input_args, \
 is_ready_to_stop_pretraining, sample_z, class_loss_fn, label_switch, plot_norm_losses #, one_hot
 from models import CVAE, DISCRIMINATOR
@@ -26,20 +26,27 @@ import matplotlib
 from matplotlib import pyplot as plt
 from time import time
 
+
 # 数据集存储目录
 root='E:/Project/ModelAndDataset/data'
-attr_name="Male"
+attr_name='Smiling'
 batch_size=64
 nz=100
 fsize=64
 lr=2e-4
 alpha=1e-3
 momentum=0.9
-maxEpochs=10
+maxEpochs=20
 gamma=1
 rho=1
 delta=1
-outdir='E:/Project/ModelAndDataset/model/CelebA'
+# 模型参数存放目录
+save_model_dir='E:/Project/ModelAndDataset/model/CelebA/cVAE_GAN'
+load_model=False
+# 实验结果存放目录
+result_dir = 'E:/Project/ZLTProgram/Images/cvae_gan'
+print ('Results will be saved to:',result_dir)
+
 
 ####### Data set #######
 print ('Prepare data loaders...')
@@ -51,13 +58,13 @@ trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=batch_size, s
 testDataset = CELEBA(root=root, train=False,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
 testLoader = torch.utils.data.DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 print ('Data loaders ready.')
-
-
-####### Create model #######
-cvae = CVAE(nz=nz, imSize=64, fSize=fsize)
-dis = DISCRIMINATOR(imSize=64, fSize=fsize)
 #GPU
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+####### Create model #######
+cvae = CVAE(nz=nz, imSize=64, fSize=fsize,device=device)
+dis = DISCRIMINATOR(imSize=64, fSize=fsize,device=device)
+
 
 
 cvae.to(device)
@@ -69,9 +76,7 @@ print (dis)
 optimizerCVAE = optim.RMSprop(cvae.parameters(), lr=lr)  #specify the params that are being upated
 optimizerDIS = optim.RMSprop(dis.parameters(), lr=lr, alpha=momentum)
 
-####### Create a new folder to save results and model info #######
-exDir = 'E:/Project/ZLTProgram/Images/cvae_gan'
-print ('Outputs will be saved to:',exDir)
+
 
 
 losses = {'total':[], 'kl':[], 'bce':[], 'dis':[], 'gen':[], 'test_bce':[], 'class':[], 'test_class':[]}
@@ -112,7 +117,9 @@ for epoch in range(maxEpochs):
 		predict_Xreal = dis(x)
 		# 生成图片预测
 		predict_XRec = dis(rec_x.detach())
-		zRand = sample_z(x.size(0), nz, device)
+		sample_batch_size=x.size(0)
+		zRand = sample_z(sample_batch_size, nz)
+		zRand=zRand.to(device)
 		# 生成独热编码矩阵
 		yRand = torch.eye(2)[torch.LongTensor(y.data.cpu().numpy())].type_as(zRand)
 
@@ -122,13 +129,16 @@ for epoch in range(maxEpochs):
 		disLoss = 0.3 * (bce(predict_Xreal, realLabel, size_average=False) + \
 			bce(predict_XRec, fakeLabel, size_average=False) + \
 			bce(predict_XRand, fakeLabel, size_average=False)) / predict_Xreal.size(1)
-
+		# disLoss = 0.5 * (bce(predict_Xreal, realLabel, size_average=False) + \
+		# 	0.5*bce(predict_XRec, fakeLabel, size_average=False))
 
 		#GEN loss，计算生成器与判别器对抗损失
 		predict_XRec = dis(rec_x)
 		predict_XRand = dis(cvae.decode(yRand, zRand))
 		genLoss = 0.5 * (bce(predict_XRec, realLabel,size_average=False) +\
-			bce(predict_XRand, realLabel, size_average=False)) / predict_XRec.size(1)
+			 bce(predict_XRand, realLabel, size_average=False)) / predict_XRand.size(1)
+		# genLoss = 0.6* (bce(predict_XRec, realLabel,size_average=False))
+		
 
 		#include the GENloss (the encoder loss) with the VAE loss
 		vaeLoss += delta * genLoss
@@ -158,60 +168,59 @@ for epoch in range(maxEpochs):
 			epochLoss_class/i, time() - TIME))
 
 
-	#generate samples after each 10 epochs
-	if epoch % 10 == 0:
-		cvae.eval()
-		dis.eval()
+	
+	
+	cvae.eval()
+	dis.eval()
+	# 创建测试结果目录
+	if os.path.exists(join(result_dir,attr_name))==False:
+		os.mkdir(join(result_dir,attr_name))
 
-		#Load test data
-		testIter = iter(testLoader)
-		xTest, yTest = next(testIter)
-		yTest = yTest
+	#Load test data
+	testIter = iter(testLoader)
+	xTest, yTest = next(testIter)
+	
+	
+
+	yTest = yTest
 		
-		xTest = xTest.to(device).data
-		yTest = yTest.to(device)
-		outputs, outMu, outLogVar, outY = cvae(xTest)
+	xTest = xTest.to(device).data
+	yTest = yTest.to(device)
+	outputs, outMu, outLogVar, outY = cvae(xTest)
 
-		print ('saving a set of samples')
-		
-		z = torch.randn(xTest.size(0), nz).to(device)
-		
+	drawCelebAImages(xTest.cpu().numpy(),
+				  yTest.cpu(),
+				  save_path=join(result_dir,attr_name,'input.png'),
+				  label_name=attr_name)
+	drawCelebAImages(outputs.cpu().detach().numpy(),
+				  yTest.cpu(),
+				  save_path=join(result_dir,attr_name,attr_name+'_output{}.png'.format(epoch)),
+				  label_name=attr_name)
 
-		y_Positive = torch.eye(2)[torch.LongTensor(np.ones(yTest.size()).astype(int))].type_as(z)
-		samples = cvae.decode(y_Positive, z).cpu()
-		save_image(samples.data, join(exDir,attr_name+'_epoch'+str(epoch)+'.png'))
+	bceLossTest, klLossTest = vae_loss_fn(rec_x=outputs, x=xTest, mu=outMu, logVar=outLogVar)
+	maxVal, predLabel = torch.max(outY, 1)
+	classScoreTest = torch.eq(predLabel, yTest).float().sum()/yTest.size(0)
+	print ('classification test:', classScoreTest.item())
 
-		y_Negative = torch.eye(2)[torch.LongTensor(np.zeros(yTest.size()).astype(int))].type_as(z)
-		samples = cvae.decode(y_Negative, z).cpu()
-		save_image(samples.data, join(exDir,"not_"+attr_name+'_epoch'+str(epoch)+'.png'))
+	# 创建模型参数目录
+	if os.path.exists(join(save_model_dir,attr_name))==False:
+		os.mkdir(join(save_model_dir,attr_name))
+	cvae.save_params(modelDir=join(save_model_dir,attr_name))
+	dis.save_params(modelDir=join(save_model_dir,attr_name))
+	
 
-		#check reconstructions after each 10 epochs
-		outputs, outMu, outLogVar, outY = cvae(xTest)
+	losses['total'].append(epochLoss/Ns)
+	losses['kl'].append(epochLoss_kl/Ns)
+	losses['bce'].append(epochLoss_bce/Ns)
+	losses['test_bce'].append((bceLossTest).item()/xTest.size(0)) #append every epoch
+	losses['dis'].append(epochLoss_dis/Ns)
+	losses['gen'].append(epochLoss_gen/Ns)
+	losses['class'].append(epochLoss_class/Ns)
+	losses['test_class'].append(classScoreTest.item())
 
-		bceLossTest, klLossTest = vae_loss_fn(rec_x=outputs, x=xTest, mu=outMu, logVar=outLogVar)
-		maxVal, predLabel = torch.max(outY, 1)
-		classScoreTest = torch.eq(predLabel, yTest).float().sum()/yTest.size(0)
-		print ('classification test:', classScoreTest.item())
-
-		save_image(xTest, join(exDir,'input.png'))
-		save_image(outputs.data, join(exDir,'output_'+str(epoch)+'.png'))
-
-		label_switch(xTest, yTest, cvae, exDir=exDir)
-
-		cvae.save_params(exDir=exDir)
-
-		losses['total'].append(epochLoss/Ns)
-		losses['kl'].append(epochLoss_kl/Ns)
-		losses['bce'].append(epochLoss_bce/Ns)
-		losses['test_bce'].append((bceLossTest).item()/xTest.size(0)) #append every epoch
-		losses['dis'].append(epochLoss_dis/Ns)
-		losses['gen'].append(epochLoss_gen/Ns)
-		losses['class'].append(epochLoss_class/Ns)
-		losses['test_class'].append(classScoreTest.item())
-
-		if epoch > 1:
-			plot_losses(losses, exDir, epochs=epoch+1)
-			plot_norm_losses(losses, exDir, epochs=1+epoch)
+	if epoch > 1:
+		plot_losses(losses, join(result_dir,attr_name), epochs=epoch+1)
+		plot_norm_losses(losses, join(result_dir,attr_name), epochs=1+epoch)
 
 
 
