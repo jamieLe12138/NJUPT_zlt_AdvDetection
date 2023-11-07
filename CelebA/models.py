@@ -62,7 +62,7 @@ class DISCRIMINATOR(nn.Module):
 
 class CVAE(nn.Module):
 
-	def __init__(self, nz, imSize, fSize=2, numLabels=2,device='cpu'):
+	def __init__(self, nz, imSize, fSize=2, numLabels=2,cBN=False,device='cpu'):
 		super(CVAE, self).__init__()
 		#define layers here
 
@@ -73,6 +73,7 @@ class CVAE(nn.Module):
 		inSize = imSize // (2 ** 4)
 		self.inSize = inSize
 		self.numLabels = numLabels
+		self.cBN=cBN
 
 		self.enc1 = nn.Conv2d(3, fSize, 5, stride=2, padding=2)
 		self.enc2 = nn.Conv2d(fSize, fSize * 2, 5, stride=2, padding=2)

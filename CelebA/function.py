@@ -82,7 +82,7 @@ def save_input_args(exDir, opts):
 	f.close()
 
 def sample_z(batch_size, nz):
-	return torch.randn(batch_size, nz)
+	return torch.randn(batch_size, nz).cuda()
 
 def label_switch(x,y,cvae,exDir=None):
 	print ('switching label...')

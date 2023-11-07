@@ -5,7 +5,7 @@ sys.path.append("E:/Project/ZLTProgram/")
 from dataload import CELEBA,drawCelebAImages
 from function import make_new_folder, plot_losses, vae_loss_fn, save_input_args, \
 is_ready_to_stop_pretraining, sample_z, class_loss_fn, label_switch, plot_norm_losses #, one_hot
-from models import CVAE, DISCRIMINATOR
+from advanced_models import CVAE,DISCRIMINATOR
 
 import torch
 from torch import optim
@@ -44,7 +44,7 @@ delta=1
 save_model_dir='E:/Project/ModelAndDataset/model/CelebA/cVAE_GAN'
 load_model=False
 # 实验结果存放目录
-result_dir = 'E:/Project/ZLTProgram/Images/cvae_gan'
+result_dir = 'E:/Project/ZLTProgram/Images/cvae_gan_advanced'
 print ('Results will be saved to:',result_dir)
 
 
@@ -62,8 +62,8 @@ print ('Data loaders ready.')
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 ####### Create model #######
-cvae = CVAE(nz=nz, imSize=64, fSize=fsize,device=device)
-dis = DISCRIMINATOR(imSize=64, fSize=fsize,device=device)
+cvae = CVAE(nz=nz, imSize=64,self_attn=True,CBN=True,fSize=fsize,device=device)
+dis = DISCRIMINATOR(imSize=64,d_spectral_norm=True ,fSize=fsize,device=device)
 
 
 

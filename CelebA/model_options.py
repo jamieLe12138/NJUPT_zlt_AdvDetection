@@ -62,9 +62,9 @@ def snconv2d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilati
     return spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
                                    stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias), eps=1e-6)
 
-def sndeconv2d(in_channels, out_channels, kernel_size, stride=2, padding=0, dilation=1, groups=1, bias=True):
+def sndeconv2d(in_channels, out_channels, kernel_size, stride=2, padding=0, output_padding=1,dilation=1, groups=1, bias=True):
     return spectral_norm(nn.ConvTranspose2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
-                                            stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias), eps=1e-6)
+                                            stride=stride, padding=padding,output_padding=output_padding, dilation=dilation, groups=groups, bias=bias), eps=1e-6)
 
 def snlinear(in_features, out_features, bias=True):
     return spectral_norm(nn.Linear(in_features=in_features, out_features=out_features, bias=bias), eps=1e-6)
