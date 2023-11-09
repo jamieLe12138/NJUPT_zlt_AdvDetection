@@ -50,7 +50,7 @@ class Adversarial_Examples_Generator():
             raw_img_path=save_dir+"/RawImage_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+"_"+task+".npy"
             raw_label_path=save_dir+"/RawLabel_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+"_"+task+".npy"
         
-        if os.path.exists(adv_img_path) and os.path.exists(adv_img_path) and os.path.exists(adv_img_path) and os.path.exists(adv_img_path):
+        if os.path.exists(adv_img_path) and os.path.exists(adv_label_path) and os.path.exists(raw_img_path) and os.path.exists(raw_label_path):
             print("Attack Task has been finished!")
         else:
             loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)       

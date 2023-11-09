@@ -16,6 +16,34 @@ matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
 from time import time
+class CELEBA_GEN(data.Dataset):
+    def __init__(self,root,label,model,attr_name,transform):
+        self.root =root
+        self.label=label
+        self.transform=transform
+        img_load_path=join(self.root,attr_name+"_"+model+"_"+"image.pth")
+        label_load_path=join(self.root,attr_name+"_"+model+"_"+"label.pth")
+
+        print('Load images from:',img_load_path)
+        print('Load labels from:',label_load_path)
+        self.data=np.load(img_load_path, mmap_mode='r')
+        self.data=self.data.transpose((0, 2, 3, 1))
+        self.labels=np.load(label_load_path)
+    def __getitem__(self, index):
+        
+        img= self.data[index]
+        target= self.labels[index]
+        # doing this so that it is consistent with all other datasets
+        # to return a PIL Image
+        img = Image.fromarray((img* 255).astype('uint8'))
+
+        if self.transform is not None:
+            img = self.transform(img)
+        target = target.astype(int)
+        return img, target
+    def __len__(self):
+        return len(self.data)
+    
 class CELEBA_Attack(data.Dataset):
     def __init__(self,root,adv,attackMethod,model,label,transform):
         self.root =root
