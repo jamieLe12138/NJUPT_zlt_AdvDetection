@@ -41,6 +41,8 @@ import torchvision.transforms as TF
 from PIL import Image
 from scipy import linalg
 from torch.nn.functional import adaptive_avg_pool2d
+from skimage.metrics import structural_similarity as ssim
+import matplotlib.pyplot as plt
 
 try:
     from tqdm import tqdm
@@ -204,4 +206,75 @@ def calculate_fid(raw_dataloader,gen_dataloader,model,batch_nums,batch_size, dev
     fid_value = calculate_frechet_distance(m1, s1, m2, s2)
 
     return fid_value
+
+def calculate_ssim(raw_dataloader,gen_dataloader,batch_nums):
+    real_iter=iter(raw_dataloader)
+    gen_iter=iter(gen_dataloader)
+    ssim_score=[]
+    for i in range(batch_nums):
+        real_x,_=next(real_iter)
+        gen_x,_=next(gen_iter)
+
+        real_x=real_x.numpy() 
+        gen_x=gen_x.numpy()
+        
+    
+        for j in range(len(real_x)):
+            ssim_score.append(ssim(im1=real_x[j],
+                                   im2=gen_x[j],
+                                   channel_axis=0,
+                                   data_range=1.0
+                                   ))
+
+    return ssim_score
+
+def calculate_l2_distance(raw_dataloader,gen_dataloader,batch_nums):
+    real_iter=iter(raw_dataloader)
+    gen_iter=iter(gen_dataloader)
+    L2_distances=[]
+    for i in range(batch_nums):
+        real_x,_=next(real_iter)
+        gen_x,_=next(gen_iter)
+
+        real_x=real_x.numpy()
+        gen_x=gen_x.numpy()
+        for j in range(len(real_x)):
+            L2_distances.append(np.linalg.norm(real_x[j] - gen_x[j]))
+    return L2_distances
+
+def DrawEvaluteResult(data1,data1_label,data2,data2_label,title,xlabel,ylabel):
+    plt.scatter(range(len(data1)), data1, color='blue', label=data1_label, s=1)
+    plt.scatter(range(len(data2)), data2, color='red', label=data2_label, s=1)
+    
+    # 添加标题和标签
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+
+    # 添加图例
+    plt.legend()
+    fig = plt.gcf()
+    
+    return fig
+
+# def DrawResult(raw_data,adv_data,title,xlabel,ylabel):
+#     plt.scatter(range(len(raw_data)), raw_data, color='blue', label='Raw', s=3)
+#     plt.scatter(range(len(adv_data)), adv_data, color='red', label='Adv', s=3)
+    
+#     # 添加标题和标签
+#     plt.title(title)
+#     plt.xlabel(xlabel)
+#     plt.ylabel(ylabel)
+
+#     # 添加图例
+#     plt.legend()
+#     fig = plt.gcf()
+#     return fig
+    
+
+
+       
+    
+
+    
 

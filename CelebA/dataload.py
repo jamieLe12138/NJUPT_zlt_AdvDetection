@@ -17,12 +17,11 @@ from matplotlib import pyplot as plt
 
 from time import time
 class CELEBA_GEN(data.Dataset):
-    def __init__(self,root,label,model,attr_name,transform):
+    def __init__(self,root,attr_name,transform):
         self.root =root
-        self.label=label
         self.transform=transform
-        img_load_path=join(self.root,attr_name+"_"+model+"_"+"image.pth")
-        label_load_path=join(self.root,attr_name+"_"+model+"_"+"label.pth")
+        img_load_path=join(self.root,attr_name+"_"+"image.npy")
+        label_load_path=join(self.root,attr_name+"_"+"label.npy")
 
         print('Load images from:',img_load_path)
         print('Load labels from:',label_load_path)

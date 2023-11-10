@@ -9,7 +9,7 @@ import numpy as np
 
 import os
 from os.path import join
-from model_options import snconv2d,sndeconv2d,snlinear,Self_Attn,ConditionalBatchNorm2d_for_skip_and_shared
+from model_options import snconv2d,snlinear,Self_Attn,ConditionalBatchNorm2d_for_skip_and_shared
 
 class DISCRIMINATOR(nn.Module):
 
