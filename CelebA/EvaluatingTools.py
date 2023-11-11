@@ -212,8 +212,8 @@ def calculate_ssim(raw_dataloader,gen_dataloader,batch_nums):
     gen_iter=iter(gen_dataloader)
     ssim_score=[]
     for i in range(batch_nums):
-        real_x,_=next(real_iter)
-        gen_x,_=next(gen_iter)
+        real_x,real_y=next(real_iter)
+        gen_x,gen_y=next(gen_iter)
 
         real_x=real_x.numpy() 
         gen_x=gen_x.numpy()
@@ -233,8 +233,8 @@ def calculate_l2_distance(raw_dataloader,gen_dataloader,batch_nums):
     gen_iter=iter(gen_dataloader)
     L2_distances=[]
     for i in range(batch_nums):
-        real_x,_=next(real_iter)
-        gen_x,_=next(gen_iter)
+        real_x,real_y=next(real_iter)
+        gen_x,gen_y=next(gen_iter)
 
         real_x=real_x.numpy()
         gen_x=gen_x.numpy()

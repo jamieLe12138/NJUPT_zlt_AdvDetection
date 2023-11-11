@@ -11,7 +11,7 @@ root='E:/Project/ModelAndDataset/data'
 attr_name='Smiling'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 batch_num=150
-transform = transforms.Compose([transforms.ToTensor(), transforms.RandomHorizontalFlip()])
+transform = transforms.Compose([transforms.ToTensor()])
 testDataset = CELEBA(root=root, train=False, train_ratio=0.7,transform=transforms.ToTensor(),label=attr_name)
 testLoader = torch.utils.data.DataLoader(testDataset, batch_size=64, shuffle=False)
 
