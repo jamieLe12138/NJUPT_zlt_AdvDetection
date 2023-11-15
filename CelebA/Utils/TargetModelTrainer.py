@@ -3,12 +3,12 @@ from torchvision import transforms
 import torch.nn.functional as F
 import torch
 import sys
-sys.path.append("E:/Project/ZLTProgram/")
+sys.path.append("E:/Project/ZLTProgram/CelebA")
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1' # 下面老是报错 shape 不一致
-from Target_model import Target_model
+import Model.Target_model as Target_model
 import torch
-from dataload import CELEBA,get_one_hot_label
+from Utils.dataload import CELEBA,get_one_hot_label
 
 def train_CelebA_target_model(root,save_dir,attr_name,
                               pretrained_model_path=None,

@@ -1,7 +1,12 @@
-from advanced_models import CVAE as CVAE2
-from models import CVAE as CVAE
+import sys
+sys.path.append("E:/Project/ZLTProgram/CelebA")
 
-from dataload import CELEBA
+
+from Model.CVAE_GAN import CVAE as CVAE
+from Model.CVAE_GAN_Advanced import CVAE as CVAE2
+from Utils.dataload import CELEBA
+
+
 from torchvision import transforms
 import torch
 import numpy as np

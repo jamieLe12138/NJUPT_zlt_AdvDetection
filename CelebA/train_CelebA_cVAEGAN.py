@@ -2,10 +2,10 @@
 import sys
 sys.path.append("E:/Project/ZLTProgram/")
 
-from dataload import CELEBA,drawCelebAImages
-from function import make_new_folder, plot_losses, vae_loss_fn, save_input_args, \
+from Utils.dataload import CELEBA,drawCelebAImages
+from Model.function import make_new_folder, plot_losses, vae_loss_fn, save_input_args, \
 is_ready_to_stop_pretraining, sample_z, class_loss_fn, label_switch, plot_norm_losses #, one_hot
-from models import CVAE, DISCRIMINATOR
+from Model.CVAE_GAN import CVAE, DISCRIMINATOR
 
 import torch
 from torch import optim
