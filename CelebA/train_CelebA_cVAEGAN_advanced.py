@@ -29,7 +29,7 @@ from time import time
 
 # 数据集存储目录
 root='E:/Project/ModelAndDataset/data'
-attr_name='Smiling'
+attr_name='Male'
 batch_size=64
 nz=100
 fsize=64
@@ -42,7 +42,7 @@ rho=1
 delta=1
 # 模型参数存放目录
 save_model_dir='E:/Project/ModelAndDataset/model/CelebA/cVAE_GAN'
-load_model=False
+load_model=True
 # 实验结果存放目录
 result_dir = 'E:/Project/ZLTProgram/Images/cvae_gan_advanced'
 print ('Results will be saved to:',result_dir)
@@ -64,7 +64,10 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 ####### Create model #######
 cvae = CVAE(nz=nz, imSize=64,self_attn=True,CBN=True,fSize=fsize,device=device)
 dis = DISCRIMINATOR(imSize=64,d_spectral_norm=True ,fSize=fsize,device=device)
-
+if load_model:
+	print("Load Pretrained Models!")
+	cvae.load_params(modelDir=join(save_model_dir,attr_name))
+	dis.load_params(modelDir=join(save_model_dir,attr_name))
 
 
 cvae.to(device)
@@ -178,10 +181,6 @@ for epoch in range(maxEpochs):
 	#Load test data
 	testIter = iter(testLoader)
 	xTest, yTest = next(testIter)
-	
-	
-
-	yTest = yTest
 		
 	xTest = xTest.to(device).data
 	yTest = yTest.to(device)
