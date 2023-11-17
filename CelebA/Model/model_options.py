@@ -168,3 +168,65 @@ class Self_Attn(nn.Module):
         attn_g = self.conv1x1_attn(attn_g)
         return x + self.sigma*attn_g
 
+class Self_Attn_Conditional(nn.Module):
+    def __init__(self, in_channels, condition_dim, spectral_norm):
+        super(Self_Attn_Conditional, self).__init__()
+        self.in_channels = in_channels
+        self.condition_dim = condition_dim
+
+        if spectral_norm:
+            self.conv1x1_theta = snconv2d(in_channels=in_channels, out_channels=in_channels//8, kernel_size=1, stride=1, padding=0, bias=False)
+            self.conv1x1_phi = snconv2d(in_channels=in_channels, out_channels=in_channels//8, kernel_size=1, stride=1, padding=0, bias=False)
+            self.conv1x1_g = snconv2d(in_channels=in_channels, out_channels=in_channels//2, kernel_size=1, stride=1, padding=0, bias=False)
+            self.conv1x1_attn = snconv2d(in_channels=in_channels//2, out_channels=in_channels, kernel_size=1, stride=1, padding=0, bias=False)
+            self.condition_linear_theta = snlinear(in_features=condition_dim, out_features=in_channels//8, bias=False)
+            self.condition_linear_phi = snlinear(in_features=condition_dim, out_features=in_channels//8, bias=False)
+            self.condition_linear_g = snlinear(in_features=condition_dim, out_features=in_channels//2, bias=False)
+        else:
+            self.conv1x1_theta = conv2d(in_channels=in_channels, out_channels=in_channels//8, kernel_size=1, stride=1, padding=0, bias=False)
+            self.conv1x1_phi = conv2d(in_channels=in_channels, out_channels=in_channels//8, kernel_size=1, stride=1, padding=0, bias=False)
+            self.conv1x1_g = conv2d(in_channels=in_channels, out_channels=in_channels//2, kernel_size=1, stride=1, padding=0, bias=False)
+            self.conv1x1_attn = conv2d(in_channels=in_channels//2, out_channels=in_channels, kernel_size=1, stride=1, padding=0, bias=False)
+            self.condition_linear_theta = linear(in_features=condition_dim, out_features=in_channels//8, bias=False)
+            self.condition_linear_phi = linear(in_features=condition_dim, out_features=in_channels//8, bias=False)
+            self.condition_linear_g = linear(in_features=condition_dim, out_features=in_channels//2, bias=False)
+
+        self.maxpool = nn.MaxPool2d(2, stride=2, padding=0)
+        self.softmax = nn.Softmax(dim=-1)
+        self.sigma = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x, condition):
+        _, ch, h, w = x.size()
+
+        # Theta path
+        theta = self.conv1x1_theta(x)
+        theta = theta.view(-1, ch//8, h*w)
+        theta_condition = self.condition_linear_theta(condition).view(-1, ch//8, 1)
+        theta = theta + theta_condition
+
+        # Phi path
+        phi = self.conv1x1_phi(x)
+        phi = self.maxpool(phi)
+        phi = phi.view(-1, ch//8, h*w//4)
+        phi_condition = self.condition_linear_phi(condition).view(-1, ch//8, 1)
+        phi = phi + phi_condition
+
+        # Attn map
+        attn = torch.bmm(theta.permute(0, 2, 1), phi)
+        attn = self.softmax(attn)
+
+        # g path
+        g = self.conv1x1_g(x)
+        g = self.maxpool(g)
+        g = g.view(-1, ch//2, h*w//4)
+        g_condition = self.condition_linear_g(condition).view(-1, ch//2, 1)
+        g = g + g_condition
+
+        # Attn_g
+        attn_g = torch.bmm(g, attn.permute(0, 2, 1))
+        attn_g = attn_g.view(-1, ch//2, h, w)
+        attn_g = self.conv1x1_attn(attn_g)
+
+        return x + self.sigma*attn_g
+
+
