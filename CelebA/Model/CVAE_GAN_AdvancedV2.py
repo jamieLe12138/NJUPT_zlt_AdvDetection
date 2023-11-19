@@ -126,7 +126,7 @@ class CVAE(nn.Module):
 			self.dec5 = nn.ConvTranspose2d(fSize, 3, 3, stride=2, padding=1, output_padding=1)
 		# 解码器使用自注意力机制
 		if self.dec_attn:
-			self.dec_attn_block=Self_Attn(fSize ,spectral_norm=False)
+			self.dec_attn_block=Self_Attn(fSize*4 ,spectral_norm=False)
 
 		# 条件归一化层
 		if self.CBN:
@@ -143,9 +143,6 @@ class CVAE(nn.Module):
 			self.dec2b = nn.BatchNorm2d(fSize * 4)
 			self.dec3b = nn.BatchNorm2d(fSize * 2)
 			self.dec4b = nn.BatchNorm2d(fSize)
-
-		
-			
 
 	def encode(self, x):
 		#define the encoder here return mu(x) and sigma(x)
@@ -180,11 +177,12 @@ class CVAE(nn.Module):
 			z = F.relu(self.dec1(z))
 			z = z.view(z.size(0), -1, self.inSize, self.inSize)
 			z = F.relu(self.dec2b(self.dec2(z),z0))
+			if self.dec_attn:
+				z=self.dec_attn_block(z)
 			
 			z = F.relu(self.dec3b(self.dec3(z),z0))			
 			z = F.relu(self.dec4b(self.dec4(z),z0))
-			if self.dec_attn:
-				z=self.dec_attn_block(z)
+			
 			z = F.sigmoid(self.dec5(z))
 
 		else:
@@ -237,15 +235,12 @@ class AUX(nn.Module):
 	#map z to a label, y
 	def __init__(self, nz, numLabels=1):
 		super(AUX, self).__init__()
-
 		self.nz = nz
 		self.numLabels = numLabels
 
 		self.aux1 = nn.Linear(nz, 1000)
 		self.aux2 = nn.Linear(1000, 1000)
 		self.aux3 = nn.Linear(1000, numLabels)
-
-
 	def infer_y_from_z(self, z):
 		z = F.relu(self.aux1(z))
 		z = F.relu(self.aux2(z))
@@ -263,14 +258,13 @@ class AUX(nn.Module):
 		return F.nll_loss(pred, target)
 
 
-	def save_params(self, exDir):
+	def save_params(self, modelDir):
 		print ('saving params...')
-		torch.save(self.state_dict(), join(exDir, 'aux_params'))
-
+		torch.save(self.state_dict(), join(modelDir, 'aux'))
 
 	def load_params(self, exDir):
 		print ('loading params...')
-		self.load_state_dict(torch.load(join(exDir, 'aux_params')))
+		self.load_state_dict(torch.load(join(exDir, 'aux')))
 
 
 

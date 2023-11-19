@@ -29,7 +29,7 @@ from time import time
 
 # 数据集存储目录
 root='E:/Project/ModelAndDataset/data'
-attr_name='Male'
+attr_name='Smiling'
 batch_size=64
 nz=100
 fsize=64
