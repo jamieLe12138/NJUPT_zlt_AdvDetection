@@ -22,15 +22,17 @@ trainDataset = CELEBA(root='E:/Project/ModelAndDataset/data', train=True,train_r
 trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
 num_epochs=20
 iter_ctr = 0
-log_step=10
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # DAGMM模型
 dagmm=DAGMM(3,64,64)
+dagmm.to(device)
 optimizer=torch.optim.Adam(dagmm.parameters(), lr=1e-4)
 
 # CVAE_GAN模型
 nz=100
 fsize=64
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 cvae = CVAE(nz=nz,
 			 imSize=64,
 			 enc_self_attn=True,
@@ -54,15 +56,12 @@ for epoch in range(0, num_epochs):
     epoch_recon_error=0
     epoch_cov_diag=0
     for i, (x, y) in enumerate(trainLoader):
-        mu, log_var, _= cvae.encode(x)
-        z = cvae.re_param(mu, log_var)
-        recon_x,_,_, _=cvae(x)
-        difference=recon_x-x
+        difference=cvae.caculate_difference(x,y)
         with torch.no_grad():
             difference=difference.to(device)
         enc, dec, dagmm_z, gamma = dagmm(difference)
         # 计算损失
-        total_loss, sample_energy, recon_error, cov_diag =dagmm.loss_function(difference, dec, dagmm_z, gamma, lambda_energy=0.1, lambda_cov_diag=0.005)
+        total_loss, sample_energy, recon_error, cov_diag =dagmm.loss_function(enc, dec, dagmm_z, gamma, lambda_energy=0.1, lambda_cov_diag=0.005)
         epoch_total_loss+=total_loss
         epoch_sample_energy+=sample_energy
         epoch_recon_error+=recon_error
@@ -89,13 +88,10 @@ cov_sum = 0
 gamma_sum = 0
 
 for it, (x, y) in enumerate(trainLoader):
-    mu, log_var, _= cvae.encode(x)
-    z = cvae.re_param(mu, log_var)
-    recon_x,_,_, _=cvae(x)
-    difference=recon_x-x
+    difference=cvae.caculate_difference(x,y)
     with torch.no_grad():
         difference=difference.to(device)
-    enc, dec, dagmm_z, gamma = dagmm()
+    enc, dec, dagmm_z, gamma = dagmm(difference)
     phi, mu, cov = dagmm.compute_gmm_params(dagmm_z, gamma)
             
     batch_gamma_sum = torch.sum(gamma, dim=0)
@@ -119,10 +115,9 @@ train_energy = []
 train_labels = []
 train_z = []
 for it, (x,y) in enumerate(trainLoader):
-    mu, log_var, _= cvae.encode(x)
-    z = cvae.re_param(mu, log_var)
-    recon_x,_,_, _=cvae(x)
-    difference=recon_x-x
+    difference=cvae.caculate_difference(x,y)
+    with torch.no_grad():
+        difference=difference.to(device)
     enc, dec, dagmm_z, gamma = dagmm(difference)
     sample_energy, cov_diag = dagmm.compute_energy(dagmm_z, phi=train_phi, mu=train_mu, cov=train_cov, size_average=False)
     # 计算训练集能量        
@@ -188,12 +183,9 @@ test_z = []
 
 for normal_imgs,normal_labels,ae_imgs,ae_labels in zip(rawLoader,advDataset):
     #重构与条件重构正常样本
-    normal_mu, normal_log_var, _= cvae.encode(normal_imgs)
-    normal_z = cvae.re_param(normal_mu, normal_log_var)
-    normal_y= torch.eye(2)[torch.LongTensor(normal_labels.data.cpu().numpy())].type_as(normal_z)
-    gen_normal=cvae.decode(y=normal_y.to(device),z=normal_z.to(device))
-    recon_normal,_,_,_=cvae(normal_imgs)
-    normal_diff=recon_normal-gen_normal
+    normal_diff=cvae.caculate_difference(normal_imgs,normal_labels)
+    with torch.no_grad():
+        normal_diff=normal_diff.to(device)
     # 计算正常样本能量
     enc, dec, dagmm_z, gamma = dagmm(normal_diff)
     sample_energy, cov_diag = dagmm.compute_energy(dagmm_z, size_average=False)
@@ -201,12 +193,9 @@ for normal_imgs,normal_labels,ae_imgs,ae_labels in zip(rawLoader,advDataset):
     test_z.append(dagmm_z.data.cpu().numpy())
     test_labels.append(torch.zeros_like(normal_labels).numpy())
     #重构与条件重构对抗样本
-    adv_mu, adv_log_var, _= cvae.encode(ae_imgs)
-    adv_z = cvae.re_param(adv_mu, adv_log_var)
-    adv_y= torch.eye(2)[torch.LongTensor(ae_labels.data.cpu().numpy())].type_as(adv_z)
-    gen_adv=cvae.decode(y=adv_y.to(device),z=adv_z.to(device))
-    recon_adv,_,_,_=cvae(ae_imgs)
-    adv_diff=recon_adv-gen_adv
+    adv_diff=cvae.caculate_difference(ae_imgs,ae_labels)
+    with torch.no_grad():
+        adv_diff=adv_diff.to(device)
     # 计算对抗样本能量
     enc, dec, dagmm_z, gamma = dagmm(adv_diff)
     sample_energy, cov_diag = dagmm.compute_energy(dagmm_z, size_average=False)

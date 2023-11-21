@@ -21,7 +21,7 @@ def mkdir(directory):
 
 class Cholesky(torch.autograd.Function):
     def forward(ctx, a):
-        l = torch.potrf(a, False)
+        l = torch.cholesky(a, False)
         ctx.save_for_backward(l)
         return l
     def backward(ctx, grad_output):
@@ -89,18 +89,18 @@ class DAGMM(nn.Module):
         enc = self.encoder(x)
 
         dec = self.decoder(enc)
-        x=x.view(x.size(0),self.in_channel*self.imSize*self.imSize)
-        dec=dec.view(dec.size(0),self.in_channel*self.imSize*self.imSize)
-        # print(x.shape)
-        # print(dec.shape)
-        rec_cosine = F.cosine_similarity(x, dec, dim=1)
-        #print("rec_cosine",rec_cosine.shape)
-        rec_euclidean = self.relative_euclidean_distance(x, dec)
-        #print("rec_euclidean",rec_euclidean.shape)
+        flatten_x=x.view(x.size(0),self.in_channel*self.imSize*self.imSize)
+        flatten_dec=dec.view(dec.size(0),self.in_channel*self.imSize*self.imSize)
+        rec_cosine = F.cosine_similarity(flatten_x, flatten_dec, dim=1)
+        rec_euclidean = self.relative_euclidean_distance(flatten_x, flatten_dec)
+        # print(rec_cosine.shape)
+        # print(rec_euclidean.shape)
 
         z = torch.cat([enc, rec_euclidean.unsqueeze(-1), rec_cosine.unsqueeze(-1)], dim=1)
-
         gamma = self.estimation(z)
+        # print(z.shape)
+        # print(gamma.shape)
+
 
         return enc, dec, z, gamma
 

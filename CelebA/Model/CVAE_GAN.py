@@ -136,6 +136,18 @@ class CVAE(nn.Module):
 		#(might be able to use nn.NLLLoss2d())
 		KL = 0.5 * torch.sum(mu ** 2 + torch.exp(logVar) - 1. - logVar) #0.5 * sum(1 + log(var) - mu^2 - var)
 		return BCE / (x.size(2) ** 2),  KL / mu.size(1)
+	
+	def caculate_difference(self,x,y):
+		x=x.to(self.device)
+		y=y.to(self.device)
+		mu, log_var, rec_y = self.encode(x)
+		z = self.re_param(mu, log_var)
+		# 解码器重构x
+		rec_x = self.decode(rec_y, z)
+		# 解码器用标签重构x
+		one_hot_y= torch.eye(2)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
+		dec_x = self.decode(one_hot_y,z)
+		return rec_x-dec_x
 
 	def forward(self, x):
 		# the outputs needed for training
