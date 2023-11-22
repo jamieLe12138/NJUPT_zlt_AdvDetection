@@ -184,7 +184,8 @@ class DAGMM(nn.Module):
 
 
     def loss_function(self, x, x_hat, z, gamma, lambda_energy, lambda_cov_diag):
-
+        # print(x.shape)
+        # print(x_hat.shape)
         recon_error = torch.mean((x - x_hat) ** 2)
 
         phi, mu, cov = self.compute_gmm_params(z, gamma)

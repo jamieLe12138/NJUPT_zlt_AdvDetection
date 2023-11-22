@@ -147,7 +147,9 @@ class CVAE(nn.Module):
 		# 解码器用标签重构x
 		one_hot_y= torch.eye(2)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
 		dec_x = self.decode(one_hot_y,z)
-		return rec_x-dec_x
+		diff=rec_x-dec_x
+		max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
+		return max_min_diff
 
 	def forward(self, x):
 		# the outputs needed for training

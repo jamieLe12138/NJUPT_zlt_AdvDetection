@@ -40,7 +40,10 @@ class Adversarial_Examples_Generator():
         adv_imgs=torch.empty(0).to(device)
         raw_labels = torch.empty(0).to(device)
         adv_labels = torch.empty(0).to(device)
-
+        adv_img_path=None
+        adv_label_path=None
+        raw_img_path=None
+        raw_label_path=None
         if save_dir:
             adv_img_path=save_dir+"/AdvImage_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+"_"+task+".npy"
             adv_label_path=save_dir+"/AdvLabel_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+"_"+task+".npy"

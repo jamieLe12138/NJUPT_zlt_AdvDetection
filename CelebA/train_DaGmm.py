@@ -20,14 +20,15 @@ attr_name='Smiling'
 batch_size=64
 trainDataset = CELEBA(root='E:/Project/ModelAndDataset/data', train=True,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
 trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
-num_epochs=20
+num_epochs=3
 iter_ctr = 0
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # DAGMM模型
 dagmm=DAGMM(3,64,64)
 dagmm.to(device)
-optimizer=torch.optim.Adam(dagmm.parameters(), lr=1e-4)
+optimizer=torch.optim.Adam(dagmm.parameters(), lr=1e-6)
+load_model=True
 
 # CVAE_GAN模型
 nz=100
@@ -48,59 +49,75 @@ losses = {'epoch_total_loss':[], 'epoch_sample_energy':[], 'epoch_recon_error':[
 
 TIME = time()
 # ============training=====================
-for epoch in range(0, num_epochs):
-    dagmm.train()
-    cvae.eval()
-    epoch_total_loss=0
-    epoch_sample_energy=0
-    epoch_recon_error=0
-    epoch_cov_diag=0
-    for i, (x, y) in enumerate(trainLoader):
-        difference=cvae.caculate_difference(x,y)
-        with torch.no_grad():
-            difference=difference.to(device)
-        enc, dec, dagmm_z, gamma = dagmm(difference)
-        # 计算损失
-        total_loss, sample_energy, recon_error, cov_diag =dagmm.loss_function(enc, dec, dagmm_z, gamma, lambda_energy=0.1, lambda_cov_diag=0.005)
-        epoch_total_loss+=total_loss
-        epoch_sample_energy+=sample_energy
-        epoch_recon_error+=recon_error
-        epoch_cov_diag+=cov_diag
-        # 反向传播
-        dagmm.zero_grad()
-        total_loss.backward()
-        torch.nn.utils.clip_grad_norm_(dagmm.parameters(), 5)
-        optimizer.step()
-        if i%100 == 0:
-            i+=1
-            print ('[{}, {}] total_loss: {}, sample_energy: {}, recon_error: {}, cov_diag: {},time: {}'.format
-		 	(epoch, i, epoch_total_loss/i,
-             epoch_sample_energy/i,
-             epoch_recon_error/i,
-             epoch_cov_diag/i,
-             time() - TIME
-             ))
-dagmm.save_params(join('E:\Project\ModelAndDataset\model\CelebA\DAGMM'))
+if load_model:
+    dagmm.load_params('E:\Project\ModelAndDataset\model\CelebA\DAGMM')
+else:
+    for epoch in range(0, num_epochs):
+    
+        dagmm.train()
+        cvae.eval()
+        epoch_total_loss=0
+        epoch_sample_energy=0
+        epoch_recon_error=0
+        epoch_cov_diag=0
+        for i, (x, y) in enumerate(trainLoader):
+            difference=cvae.caculate_difference(x,y)
+            with torch.no_grad():
+                difference=difference.to(device)
+            enc, dec, dagmm_z, gamma = dagmm(difference)
+            # print(enc.shape)
+            # print(dec.shape)
+            # 计算损失
+            total_loss, sample_energy, recon_error, cov_diag =dagmm.loss_function(difference, dec, dagmm_z, gamma, lambda_energy=0.1, lambda_cov_diag=0.005)
+            epoch_total_loss+=total_loss
+            epoch_sample_energy+=sample_energy
+            epoch_recon_error+=recon_error
+            epoch_cov_diag+=cov_diag
+            # 反向传播
+            dagmm.zero_grad()
+            total_loss.backward()
+            torch.nn.utils.clip_grad_norm_(dagmm.parameters(), 5)
+            optimizer.step()
+            if i%100 == 0:
+                i+=1
+                print ('[{}, {}] total_loss: {}, sample_energy: {}, recon_error: {}, cov_diag: {},time: {}'.format
+		 	    (epoch, i, epoch_total_loss/i,
+                epoch_sample_energy/i,
+                epoch_recon_error/i,
+                epoch_cov_diag/i,
+                time() - TIME
+                ))
+    dagmm.save_params('E:\Project\ModelAndDataset\model\CelebA\DAGMM')
+dagmm.eval()
 # ============test=====================
 N = 0
-mu_sum = 0
-cov_sum = 0
-gamma_sum = 0
+# mu_sum = torch.zeros([2,3]).to(device)
+# cov_sum = torch.zeros([2,3,3]).to(device)
+# gamma_sum = torch.zeros([2]).to(device)
 
+mu_sum=0
+cov_sum=0
+gamma_sum=0
 for it, (x, y) in enumerate(trainLoader):
+    #print("it:",it)
     difference=cvae.caculate_difference(x,y)
     with torch.no_grad():
         difference=difference.to(device)
-    enc, dec, dagmm_z, gamma = dagmm(difference)
-    phi, mu, cov = dagmm.compute_gmm_params(dagmm_z, gamma)
-            
-    batch_gamma_sum = torch.sum(gamma, dim=0)
-            
-    gamma_sum += batch_gamma_sum
-    mu_sum += mu * batch_gamma_sum.unsqueeze(-1) # keep sums of the numerator only
-    cov_sum += cov * batch_gamma_sum.unsqueeze(-1).unsqueeze(-1) # keep sums of the numerator only
-            
-    N += difference.size(0)
+        enc, dec, dagmm_z, gamma = dagmm(difference)
+        phi, mu, cov = dagmm.compute_gmm_params(dagmm_z, gamma)  
+
+        batch_gamma_sum = torch.sum(gamma, dim=0)    
+        gamma_sum+=batch_gamma_sum
+        mu_sum+=mu*batch_gamma_sum.unsqueeze(-1) # keep sums of the numerator only
+        cov_sum+=cov * batch_gamma_sum.unsqueeze(-1).unsqueeze(-1) # keep sums of the numerator only    
+        N += difference.size(0)
+    if it%100==0:
+        print("Batch:",it)
+        print("gamma_sum :\n",gamma_sum)
+        print("mu_sum :\n",mu_sum)
+        print("cov_sum:\n",cov_sum)
+
+
             
 train_phi = gamma_sum / N
 train_mu = mu_sum / gamma_sum.unsqueeze(-1)
@@ -110,7 +127,7 @@ print("N:",N)
 print("phi :\n",train_phi)
 print("mu :\n",train_mu)
 print("cov :\n",train_cov)
-
+print("=============Caculating train_energy=======================")
 train_energy = []
 train_labels = []
 train_z = []
@@ -123,7 +140,7 @@ for it, (x,y) in enumerate(trainLoader):
     # 计算训练集能量        
     train_energy.append(sample_energy.data.cpu().numpy())
     train_z.append(dagmm_z.data.cpu().numpy())
-    train_labels.append(torch.zeroslike(y).numpy())
+    train_labels.append(torch.zeros_like(y).numpy())
 
 
 train_energy = np.concatenate(train_energy,axis=0)
@@ -169,19 +186,20 @@ ae_generator=Adversarial_Examples_Generator(
             save_dir=None,
             device=device
             )
+print("Generating AEs!")
 # 生成对抗样本
 raw_imgs,adv_imgs,raw_labels,adv_labels=ae_generator.generate()
 
 rawDataset=TensorDataset(raw_imgs,raw_labels)
 advDataset=TensorDataset(adv_imgs,adv_labels)
 rawLoader=DataLoader(dataset=rawDataset,batch_size=batch_size,shuffle=False)
-rawLoader=DataLoader(dataset=advDataset,batch_size=batch_size,shuffle=False)
+advLoader=DataLoader(dataset=advDataset,batch_size=batch_size,shuffle=False)
 
 test_energy = []
 test_labels = []
 test_z = []
-
-for normal_imgs,normal_labels,ae_imgs,ae_labels in zip(rawLoader,advDataset):
+print("=============Caculating test_energy=======================")
+for (normal_imgs,normal_labels),(ae_imgs,ae_labels) in zip(rawLoader,advLoader):
     #重构与条件重构正常样本
     normal_diff=cvae.caculate_difference(normal_imgs,normal_labels)
     with torch.no_grad():
@@ -191,7 +209,7 @@ for normal_imgs,normal_labels,ae_imgs,ae_labels in zip(rawLoader,advDataset):
     sample_energy, cov_diag = dagmm.compute_energy(dagmm_z, size_average=False)
     test_energy.append(sample_energy.data.cpu().numpy())
     test_z.append(dagmm_z.data.cpu().numpy())
-    test_labels.append(torch.zeros_like(normal_labels).numpy())
+    test_labels.append(torch.zeros_like(normal_labels).cpu().numpy())
     #重构与条件重构对抗样本
     adv_diff=cvae.caculate_difference(ae_imgs,ae_labels)
     with torch.no_grad():
@@ -201,7 +219,7 @@ for normal_imgs,normal_labels,ae_imgs,ae_labels in zip(rawLoader,advDataset):
     sample_energy, cov_diag = dagmm.compute_energy(dagmm_z, size_average=False)
     test_energy.append(sample_energy.data.cpu().numpy())
     test_z.append(dagmm_z.data.cpu().numpy())
-    test_labels.append(torch.ones_like(ae_labels).numpy())
+    test_labels.append(torch.ones_like(ae_labels).cpu().numpy())
 
 test_energy = np.concatenate(test_energy,axis=0)
 test_z = np.concatenate(test_z,axis=0)
