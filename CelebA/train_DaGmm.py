@@ -20,7 +20,7 @@ attr_name='Smiling'
 batch_size=64
 trainDataset = CELEBA(root='E:/Project/ModelAndDataset/data', train=True,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
 trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
-num_epochs=3
+num_epochs=2
 iter_ctr = 0
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -53,7 +53,6 @@ if load_model:
     dagmm.load_params('E:\Project\ModelAndDataset\model\CelebA\DAGMM')
 else:
     for epoch in range(0, num_epochs):
-    
         dagmm.train()
         cvae.eval()
         epoch_total_loss=0
@@ -148,7 +147,7 @@ train_z = np.concatenate(train_z,axis=0)
 train_labels = np.concatenate(train_labels,axis=0)
 
 
-model_name='resnet18'
+model_name='vgg19'
 clip_values = (0.0, 1.0)
 dagmm.eval()
 # 定义模型
@@ -174,8 +173,9 @@ estimator=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
                                     optimizer=optimizer,
                                     input_shape=(3,64,64), nb_classes=2,clip_values=clip_values)
 attacker=FastGradientMethod(estimator=estimator,eps=0.05)
+#attacker=BasicIterativeMethod(estimator=estimator,eps=0.05)
 # 对抗样本生成器
-testDataset = CELEBA(root='E:/Project/ModelAndDataset/data', train=False,train_ratio=0.99,transform=transforms.ToTensor(),label=attr_name)
+testDataset = CELEBA(root='E:/Project/ModelAndDataset/data', train=False,train_ratio=0.98,transform=transforms.ToTensor(),label=attr_name)
 ae_generator=Adversarial_Examples_Generator(
             targetmodel=target_model,
             task=attr_name,
@@ -200,7 +200,7 @@ test_labels = []
 test_z = []
 print("=============Caculating test_energy=======================")
 for (normal_imgs,normal_labels),(ae_imgs,ae_labels) in zip(rawLoader,advLoader):
-    #重构与条件重构正常样本
+    # #重构与条件重构正常样本
     normal_diff=cvae.caculate_difference(normal_imgs,normal_labels)
     with torch.no_grad():
         normal_diff=normal_diff.to(device)
@@ -210,6 +210,7 @@ for (normal_imgs,normal_labels),(ae_imgs,ae_labels) in zip(rawLoader,advLoader):
     test_energy.append(sample_energy.data.cpu().numpy())
     test_z.append(dagmm_z.data.cpu().numpy())
     test_labels.append(torch.zeros_like(normal_labels).cpu().numpy())
+
     #重构与条件重构对抗样本
     adv_diff=cvae.caculate_difference(ae_imgs,ae_labels)
     with torch.no_grad():
