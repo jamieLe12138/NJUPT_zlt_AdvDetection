@@ -99,7 +99,10 @@ def train_DaGmm(attr_name,
                 epoch_cov_diag/i,
                 time() - TIME
                 ))
-    dagmm.save_params('E:\Project\ModelAndDataset\model\CelebA\DAGMM')
+    # 创建测试结果目录
+    if os.path.exists(join('E:\Project\ModelAndDataset\model\CelebA\DAGMM',attr_name))==False:
+        os.mkdir(join('E:\Project\ModelAndDataset\model\CelebA\DAGMM',attr_name))
+    dagmm.save_params(join('E:\Project\ModelAndDataset\model\CelebA\DAGMM',attr_name))
 def test_DaGmm(attr_name,
                 gen_model,
                 dagmm_model,
@@ -109,6 +112,7 @@ def test_DaGmm(attr_name,
                 batch_size=64,
                 device='cuda'):
     dagmm_model.eval()
+    gen_model.eval()
     trainDataset = CELEBA(root='E:/Project/ModelAndDataset/data', train=True,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
     trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
     # ============test=====================
@@ -205,7 +209,6 @@ def test_DaGmm(attr_name,
     print("Generating AEs!")
     # 生成对抗样本
     raw_imgs,adv_imgs,raw_labels,adv_labels=ae_generator.generate()
-
     rawDataset=TensorDataset(raw_imgs,raw_labels)
     advDataset=TensorDataset(adv_imgs,adv_labels)
     rawLoader=DataLoader(dataset=rawDataset,batch_size=batch_size,shuffle=False)
@@ -238,29 +241,29 @@ def test_DaGmm(attr_name,
         test_z.append(dagmm_z.data.cpu().numpy())
         test_labels.append(torch.ones_like(ae_labels).cpu().numpy())
 
-        test_energy = np.concatenate(test_energy,axis=0)
-        test_z = np.concatenate(test_z,axis=0)
-        test_labels = np.concatenate(test_labels,axis=0)
-        # 计算combined_energy
-        combined_energy = np.concatenate([train_energy, test_energy], axis=0)
+    test_energy = np.concatenate(test_energy,axis=0)
+    test_z = np.concatenate(test_z,axis=0)
+    test_labels = np.concatenate(test_labels,axis=0)
+    # 计算combined_energy
+    combined_energy = np.concatenate([train_energy, test_energy], axis=0)
 
-        thresh = np.percentile(combined_energy, 100 - 20)
-        print("Threshold :", thresh)
+    thresh = np.percentile(combined_energy, 100 - 20)
+    print("Threshold :", thresh)
 
-        pred = (test_energy > thresh).astype(int)
-        gt = test_labels.astype(int)
+    pred = (test_energy > thresh).astype(int)
+    gt = test_labels.astype(int)
 
-        from sklearn.metrics import precision_recall_fscore_support, accuracy_score,confusion_matrix
-        accuracy = accuracy_score(gt,pred)
-        matrix=confusion_matrix(gt, pred)
-        precision, recall, f_score, support = precision_recall_fscore_support(gt, pred, average='binary')
-        print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f}".format(accuracy, precision, recall, f_score))
-        drawConfusion_matrix(target_model_name=model_name,
-                             attr_name=attr_name,
-                             attck_Method=str(type(attacker).__name__),
-                             confusion_matrix=matrix,
-                             save_path=test_result_path
-                             )
+    from sklearn.metrics import precision_recall_fscore_support, accuracy_score,confusion_matrix
+    accuracy = accuracy_score(gt,pred)
+    matrix=confusion_matrix(gt, pred)
+    precision, recall, f_score, support = precision_recall_fscore_support(gt, pred, average='binary')
+    print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f}".format(accuracy, precision, recall, f_score))
+    drawConfusion_matrix(target_model_name=model_name,
+                        attr_name=attr_name,
+                        attck_Method=str(type(attacker).__name__),
+                        confusion_matrix=matrix,
+                        save_path=test_result_path
+                        )
         
 
 

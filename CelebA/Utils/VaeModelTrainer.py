@@ -49,9 +49,7 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
     print ('Results will be saved to:',result_dir)
     ####### Data set #######
     print ('Prepare data loaders...')
-
     trainDataset = CELEBA(root=root, train=True, train_ratio=0.7,transform=transforms.ToTensor(),label=attr_name)
-
     trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=train_batch_size, shuffle=True)
 
     testDataset = CELEBA(root=root, train=False,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
@@ -76,8 +74,8 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
 					device=device)
     if load_model:
         print("Load Pretrained Models!")
-    cvae.load_params(modelDir=join(save_model_dir,attr_name))
-    dis.load_params(modelDir=join(save_model_dir,attr_name))
+        cvae.load_params(modelDir=join(save_model_dir,attr_name))
+        dis.load_params(modelDir=join(save_model_dir,attr_name))
 
     cvae.to(device)
     dis.to(device)
