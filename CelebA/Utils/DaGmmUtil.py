@@ -24,7 +24,7 @@ def drawConfusion_matrix(target_model_name,
                          save_path=None
                          ):
     # 绘制混淆矩阵
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(6, 6))
     plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Blues)
     plt.title('Detection Task {}_{}_{}  '.format(target_model_name,attr_name,attck_Method))
     plt.colorbar()
@@ -56,6 +56,7 @@ def train_DaGmm(attr_name,
                 load_model=False,
                 device='cuda'
                 ):
+    torch.cuda.empty_cache()
     trainDataset = CELEBA(root=root, train=True,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
     trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
 
@@ -118,6 +119,7 @@ def test_DaGmm(attr_name,
                 device='cuda'):
     dagmm_model.eval()
     gen_model.eval()
+    torch.cuda.empty_cache()
     trainDataset = CELEBA(root=root,train=True,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
     trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
     # ============test=====================

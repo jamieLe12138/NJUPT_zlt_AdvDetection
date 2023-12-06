@@ -5,7 +5,8 @@ from art.attacks.evasion import *
 from Model.DAGMM import DAGMM
 from os.path import join
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-attr_names = [ 'Male', 'Smiling', "Eyeglasses","Young"]
+#attr_names = [ 'Male', 'Smiling', "Eyeglasses","Young"]
+attr_names = ['Smiling', "Eyeglasses","Young"]
 model_names=["resnet18","vgg19","densenet169","mobilenet"]
 attackers=[FastGradientMethod,BasicIterativeMethod,ProjectedGradientDescent]
 cvae_dir="F:\ModelAndDataset\model\CelebA\cVAE_GAN"
