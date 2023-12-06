@@ -48,12 +48,14 @@ def drawConfusion_matrix(target_model_name,
 
 def train_DaGmm(attr_name,
                 gen_model,
+                root='E:/Project/ModelAndDataset/data',
+                dagmm_model_path='E:\Project\ModelAndDataset\model\CelebA\DAGMM',
                 batch_size=64,
                 num_epochs=2,
                 load_model=False,
                 device='cuda'
                 ):
-    trainDataset = CELEBA(root='E:/Project/ModelAndDataset/data', train=True,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
+    trainDataset = CELEBA(root=root, train=True,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
     trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
 
     # DAGMM模型
@@ -64,7 +66,7 @@ def train_DaGmm(attr_name,
 
     TIME = time()
     if load_model:
-        dagmm.load_params('E:\Project\ModelAndDataset\model\CelebA\DAGMM')
+        dagmm.load_params(dagmm_model_path)
     for epoch in range(0, num_epochs):
         dagmm.train()
         gen_model.eval()
@@ -100,20 +102,22 @@ def train_DaGmm(attr_name,
                 time() - TIME
                 ))
     # 创建测试结果目录
-    if os.path.exists(join('E:\Project\ModelAndDataset\model\CelebA\DAGMM',attr_name))==False:
-        os.mkdir(join('E:\Project\ModelAndDataset\model\CelebA\DAGMM',attr_name))
-    dagmm.save_params(join('E:\Project\ModelAndDataset\model\CelebA\DAGMM',attr_name))
+    if os.path.exists(join(dagmm_model_path,attr_name))==False:
+        os.mkdir(join(dagmm_model_path,attr_name))
+    dagmm.save_params(join(dagmm_model_path,attr_name))
 def test_DaGmm(attr_name,
                 gen_model,
                 dagmm_model,
                 Attck_method,
+                root='E:/Project/ModelAndDataset/data',
+                target_model_dir="E:\Project\ModelAndDataset\model\CelebA",
                 model_name='resnet18',
                 test_result_path=None,
                 batch_size=64,
                 device='cuda'):
     dagmm_model.eval()
     gen_model.eval()
-    trainDataset = CELEBA(root='E:/Project/ModelAndDataset/data', train=True,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
+    trainDataset = CELEBA(root=root,train=True,train_ratio=0.7 ,transform=transforms.ToTensor(),label=attr_name)
     trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
     # ============test=====================
     N = 0
@@ -187,7 +191,6 @@ def test_DaGmm(attr_name,
     elif model_name=='mobilenet':
         optimizer="RMSprop"
     #加载目标模型
-    target_model_dir="E:\Project\ModelAndDataset\model\CelebA"
     target_model.load_state_dict(torch.load(join(target_model_dir,"CelebA_"+model_name+"_"+attr_name+".pth")))
     estimator=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
                                     optimizer=optimizer,
@@ -195,7 +198,7 @@ def test_DaGmm(attr_name,
     attacker=Attck_method(estimator=estimator,eps=0.05)
 
     # 对抗样本生成器
-    testDataset = CELEBA(root='E:/Project/ModelAndDataset/data', train=False,train_ratio=0.98,transform=transforms.ToTensor(),label=attr_name)
+    testDataset = CELEBA(root=root, train=False,train_ratio=0.98,transform=transforms.ToTensor(),label=attr_name)
     ae_generator=Adversarial_Examples_Generator(
             targetmodel=target_model,
             task=attr_name,

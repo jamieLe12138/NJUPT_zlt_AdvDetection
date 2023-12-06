@@ -25,7 +25,6 @@ from PIL import Image
 import matplotlib 
 from matplotlib import pyplot as plt
 from time import time
-torch.cuda.empty_cache()
 
 def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
                     attr_name='Smiling',
@@ -45,7 +44,7 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
                     result_dir = 'E:/Project/ZLTProgram/Images/cvae_gan_advancedV2'# 实验结果存放目录
                     ):
 	
-
+    torch.cuda.empty_cache()
     print ('Results will be saved to:',result_dir)
     ####### Data set #######
     print ('Prepare data loaders...')
