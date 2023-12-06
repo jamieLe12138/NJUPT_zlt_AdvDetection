@@ -42,8 +42,9 @@ def drawConfusion_matrix(target_model_name,
     for i in range(len(classes)):
         for j in range(len(classes)):
             plt.text(j, i, str(confusion_matrix[i, j]), horizontalalignment="center", color="black")
+    pic_name='{}_{}_{}'.format(target_model_name,attr_name,attck_Method)
     if save_path:
-        plt.savefig(save_path)
+        plt.savefig(join(save_path,pic_name))
 
 
 def train_DaGmm(attr_name,
