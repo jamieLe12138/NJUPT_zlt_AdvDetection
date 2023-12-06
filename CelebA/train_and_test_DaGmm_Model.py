@@ -6,29 +6,33 @@ from Model.DAGMM import DAGMM
 from os.path import join
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 #attr_names = [ 'Male', 'Smiling', "Eyeglasses","Young"]
-attr_names = ['Smiling', "Eyeglasses","Young"]
+attr_names = [ 'Smiling', "Eyeglasses","Young"]
 model_names=["resnet18","vgg19","densenet169","mobilenet"]
 attackers=[FastGradientMethod,BasicIterativeMethod,ProjectedGradientDescent]
 cvae_dir="F:\ModelAndDataset\model\CelebA\cVAE_GAN"
 dagmm_dir="F:\ModelAndDataset\model\CelebA\DAGMM"
+train=True
+#===============Train====================
+if train:
+   for attr_name in attr_names:
+      cvae = CVAE(nz=100,
+			   imSize=64,
+			   enc_self_attn=True,
+			   dec_self_attn=True,
+			   g_spectral_norm=False,
+			   CBN=True,
+			   fSize=64,
+			   device=device)
+      cvae.load_params(join(cvae_dir,attr_name))
+      cvae.to(device)
+      train_DaGmm(root="F:\ModelAndDataset\data",
+                  dagmm_model_path=dagmm_dir,
+                  attr_name=attr_name,
+                  gen_model=cvae,
+                  device=device
+                  )
+#===============Test==================== 
 for attr_name in attr_names:
-   cvae = CVAE(nz=100,
-			 imSize=64,
-			 enc_self_attn=True,
-			 dec_self_attn=True,
-			 g_spectral_norm=False,
-			 CBN=True,
-			 fSize=64,
-			 device=device)
-   cvae.load_params(join(cvae_dir,attr_name))
-   cvae.to(device)
-   train_DaGmm(root="F:\ModelAndDataset\data",
-               dagmm_model_path=dagmm_dir,
-               attr_name=attr_name,
-               gen_model=cvae,
-               device=device
-               )
-
    dagmm=DAGMM(3,64,64)
    dagmm.load_params(join(dagmm_dir,attr_name))
    dagmm.to(device)

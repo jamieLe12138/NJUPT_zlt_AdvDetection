@@ -24,24 +24,23 @@ def drawConfusion_matrix(target_model_name,
                          save_path=None
                          ):
     # 绘制混淆矩阵
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(8, 8))
     plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title('Detection Task {}_{}_{}  '.format(target_model_name,attr_name,attck_Method))
+    plt.title('Confusion Matrix')
     plt.colorbar()
-
     classes = ['Normal', 'Adversarial']  
     tick_marks = np.arange(len(classes))
 
     plt.xticks(tick_marks, classes)
-    plt.yticks(tick_marks, classes)
+    plt.yticks(tick_marks, classes,rotation=90)
 
     plt.xlabel('Predicted')
-    plt.ylabel('Actual')
+    plt.ylabel('Actual',rotation=90)
 
     # 在图表中添加数字标签
     for i in range(len(classes)):
         for j in range(len(classes)):
-            plt.text(j, i, str(confusion_matrix[i, j]), horizontalalignment="center", color="black")
+            plt.text(j, i, str(confusion_matrix[i, j]),fontsize=12,horizontalalignment="center", color="black")
     pic_name='{}_{}_{}'.format(target_model_name,attr_name,attck_Method)
     if save_path:
         plt.savefig(join(save_path,pic_name))
