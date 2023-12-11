@@ -3,49 +3,49 @@ from torchvision import transforms
 import torch.nn.functional as F
 import torch
 import sys
-sys.path.append("E:/Project/ZLTProgram/CelebA")
+sys.path.append("E:/Project/ZLTProgram/GTSRB")
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1' # 下面老是报错 shape 不一致
 import Model.Target_model as Target_model
 import torch
-from Utils.MISC import CELEBA,get_one_hot_label
+from Utils.MISC import *
 
-def train_GTSRB_target_model(root,save_dir,attr_name,
+def train_GTSRB_target_model(root,save_dir,
+                              selected_classes,
                               pretrained_model_path=None,
                               save=True,
-                              train_ratio=0.7,
                               num_epochs=10,
                               batch_size=128,
                               model='resnet18',
-                              shuffle=False,
                               criterion = F.cross_entropy,
                               optimizer = "Adam",
                               device="cuda"):
     
-    # 定义数据转换
-    transform=transforms.Compose([transforms.ToTensor(), transforms.RandomHorizontalFlip()])
     # 加载数据集
-    # Dataset = CELEBA(root=root, train=True,label=attr_name, transform=transform)
-    # dataset_size = len(Dataset)
-    # train_size = int(train_ratio * dataset_size)
-    # valid_size = dataset_size - train_size
-    train_dataset = CELEBA(root=root, train=True ,train_ratio=train_ratio,label=attr_name,transform=transform)
-    valid_dataset = CELEBA(root=root, train=False,train_ratio=train_ratio,label=attr_name,transform=transform)
-    train_Loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
-    test_Loader = torch.utils.data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=shuffle)
-    save_path=save_dir+"/CelebA_{}_{}.pth".format(model,attr_name)
+    train_class_mapping,train_class_name_mapping,train_Loader=loadData_selected_labels(root=root,
+                                                                                       selected_classes=selected_classes,
+                                                                                       batch_size=batch_size,
+                                                                                       train=True)
+    test_class_mapping,test_class_name_mapping,test_Loader =loadData_selected_labels(root=root,
+                                                                                     selected_classes=selected_classes,
+                                                                                     batch_size=batch_size,
+                                                                                     train=False
+                                                                                            )
+    print(train_class_name_mapping)
+
+    save_path=save_dir+"/GTSRB_{}_{}.pth".format(model,len(selected_classes))
     if os.path.exists(save_path) and pretrained_model_path==None:
         print("File {} is already existed ,skip trainning!".format(save_path))
     else:
         # 加载模型
         if model=='resnet18':
-            model=Target_model.ResNet18(num_classes=2).to(device)
+            model=Target_model.ResNet18(num_classes=len(selected_classes)).to(device)
         elif model=='vgg19':
-            model=Target_model.VGG_19(num_classes=2).to(device)
+            model=Target_model.VGG_19(num_classes=len(selected_classes)).to(device)
         elif model=='densenet169':
-            model=Target_model.Densenet169(num_classes=2).to(device)
+            model=Target_model.Densenet169(num_classes=len(selected_classes)).to(device)
         elif model=='mobilenet':
-            model=Target_model.MobileNet(num_classes=2).to(device)
+            model=Target_model.MobileNet(num_classes=len(selected_classes)).to(device)
 
         if pretrained_model_path:
             print("File {} existed , load saved state dict!")
@@ -64,15 +64,16 @@ def train_GTSRB_target_model(root,save_dir,attr_name,
             model.train() 
             for i,(images,labels) in enumerate(train_Loader):
                 images=images.to(device)
+                labels=mapping_labels(train_class_mapping,labels)
                 labels=labels.unsqueeze(1).long()
         
-                one_hot_labels=get_one_hot_label(labels).to(device)
+                one_hot_labels=get_one_hot_label(labels,num_classes=len(selected_classes)).to(device)
                 outputs = model(images).to(device)
         
                 optimizer.zero_grad()
                 loss = criterion(outputs, one_hot_labels)
-                if(i%200==0) :
-                    print(f'Batch:{i}/{train_dataset.size//batch_size+1},Loss:{loss.item():.4f}')
+                if(i%10==0) :
+                    print(f'Batch:{i}/{len(train_Loader)},Loss:{loss.item():.4f}')
                 loss.backward()
                 optimizer.step()
             print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
@@ -84,6 +85,7 @@ def train_GTSRB_target_model(root,save_dir,attr_name,
             # max_acc=0
             for images, labels in test_Loader:
                 images=images.to(device)
+                labels=mapping_labels(test_class_mapping,labels)
                 outputs = model(images).cpu()
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
@@ -97,14 +99,14 @@ def train_GTSRB_target_model(root,save_dir,attr_name,
                 break
 
             if accuracy>90 and accuracy<=95 :
-                if epoch>=3:
+                if epoch>10:
                     print("Current Accuracy is up to 90% ,current epoch is {},stop trainning".format(epoch))
                     break
                 else:
                     print("Current Accuracy is up to 90% ,current epoch is {},continue trainning".format(epoch))
 
             if accuracy>86 and accuracy<=90 :
-                if epoch>5:
+                if epoch>15:
                     print("Current Accuracy is up to 86% ,current epoch is {},stop trainning".format(epoch))
                     break
                 else:

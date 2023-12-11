@@ -27,11 +27,13 @@ from matplotlib import pyplot as plt
 from time import time
 
 from torchvision.datasets import GTSRB
+from Utils.MISC import *
 transform = transforms.Compose([
     transforms.Resize((64, 64)),  # 调整图像大小为统一大小
     transforms.ToTensor(),
 ])
-def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
+def train_cVAE_GAN( selected_classes,
+                    root="F:\ModelAndDataset\data",
                     train_batch_size=64,
                     test_batch_size=64,
                     nz=100,
@@ -43,20 +45,26 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
                     gamma=1,
                     rho=1,
                     delta=1,
-                    save_model_dir='E:/Project/ModelAndDataset/model/CelebA/cVAE_GAN',# 模型参数存放目录
+                    save_model_dir='F:/ModelAndDataset/model/GTSRB/cVAE_GAN',# 模型参数存放目录
                     load_model=False,
-                    result_dir = 'E:/Project/ZLTProgram/Images/cvae_gan_GTSRB'# 实验结果存放目录
+                    result_dir = 'E:/Project/ZLTProgram/Images/cvae_gan_gtsrb'# 实验结果存放目录
                     ):
 	
     torch.cuda.empty_cache()
     print ('Results will be saved to:',result_dir)
     ####### Data set #######
     print ('Prepare data loaders...')
-    trainDataset = GTSRB(root=root,split="train",transform=transform,download=True)
-    trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=train_batch_size, shuffle=True)
-
-    testDataset = GTSRB(root=root,split="test",transform=transform,download=True)
-    testLoader = torch.utils.data.DataLoader(testDataset, batch_size=test_batch_size, shuffle=False)
+    train_class_mapping,train_class_name_mapping,trainLoader=loadData_selected_labels(root=root,
+                                                                                       selected_classes=selected_classes,
+                                                                                       batch_size=train_batch_size,
+                                                                                       train=True)
+    test_class_mapping,test_class_name_mapping,testLoader=loadData_selected_labels(root=root,
+                                                                                    selected_classes=selected_classes,
+                                                                                    batch_size=test_batch_size,
+                                                                                    train=False)
+    print("Mapping")
+    print(train_class_mapping)
+    print(test_class_name_mapping)
     print ('Data loaders ready.')
     #GPU
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -69,16 +77,17 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
 			 g_spectral_norm=False,
 			 CBN=True,
 			 fSize=fsize,
+             numLabels=len(selected_classes),
 			 device=device)
     dis = DISCRIMINATOR(imSize=64,
-					self_attn=False,
-					d_spectral_norm=True,
-					fSize=fsize,
-					device=device)
+					    self_attn=False,
+					    d_spectral_norm=True,
+					    fSize=fsize,
+					    device=device)
     if load_model:
         print("Load Pretrained Models!")
-        cvae.load_params(modelDir=join(save_model_dir))
-        dis.load_params(modelDir=join(save_model_dir))
+        cvae.load_params(modelDir=save_model_dir,class_num=len(selected_classes))
+        dis.load_params(modelDir=save_model_dir,class_num=len(selected_classes))
 
     cvae.to(device)
     dis.to(device)
@@ -107,7 +116,9 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
 
         for i, data in enumerate(trainLoader, 0):	
             x, y = data
+            y=mapping_labels(train_class_mapping,y)
             x, y = x.to(device), y.to(device)
+           
             rec_x, outMu, outLogVar, predY = cvae(x)
             z = cvae.re_param(outMu, outLogVar)
 		    #VAE loss
@@ -128,7 +139,7 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
             sample_batch_size=x.size(0)
             zRand = sample_z(sample_batch_size, nz)
             # 生成独热编码矩阵
-            yRand = torch.eye(2)[torch.LongTensor(y.data.cpu().numpy())].type_as(zRand)
+            yRand = torch.eye(len(selected_classes))[torch.LongTensor(y.data.cpu().numpy())].type_as(zRand)
 
             predict_XRand = dis(cvae.decode(yRand, zRand).detach())
             fakeLabel = torch.Tensor(predict_Xreal.size()).zero_().type_as(predict_Xreal)
@@ -167,7 +178,7 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
             epochLoss_class += classLoss.item()
 
 
-            if i%100 == 0:
+            if i%25 == 0:
                 i+=1
                 print ('[%d, %d] loss: %0.5f, rec: %0.5f, alpha*kl: %0.5f, gen: %0.5f, dis: %0.5f,class: %0.5f, time: %0.3f' % \
 		 	    (epoch, i, epochLoss/i, epochLoss_rec/i ,alpha*epochLoss_kl/i, epochLoss_gen/i, epochLoss_dis/i, \
@@ -182,19 +193,22 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
 	    #Load test data
         testIter = iter(testLoader)
         xTest, yTest = next(testIter)
+        yTest=mapping_labels(train_class_mapping,yTest)
 		
         xTest = xTest.to(device).data
         yTest = yTest.to(device)
         outputs, outMu, outLogVar, outY = cvae(xTest)
-
-        drawGTSRBImages(xTest.cpu().numpy(),
-				        yTest.cpu(),
-				        save_path=join(result_dir,'input.png'),
-				        )
-        drawGTSRBImages(outputs.cpu().detach().numpy(),
-				        yTest.cpu(),
-				        save_path=join(result_dir,attr_name,attr_name+'_output{}.png'.format(epoch)),
-				        label_name=attr_name)
+        if epoch%5==0:
+            drawGTSRBImages(xTest.cpu().numpy(),
+			    	        yTest.cpu(),
+                            test_class_name_mapping,
+				            save_path=join(result_dir,'input.png'),
+				            )
+            drawGTSRBImages(outputs.cpu().detach().numpy(),
+			    	        yTest.cpu(),
+                            test_class_name_mapping,
+				            save_path=join(result_dir,"GTSRB_{}_output{}.png".format(len(selected_classes),epoch)),
+				            )
 
         (recLossTest), klLossTest = vae_loss_fn(rec_x=outputs, x=xTest, mu=outMu, logVar=outLogVar)
         maxVal, predLabel = torch.max(outY, 1)
@@ -202,10 +216,10 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
         print ('classification test:', classScoreTest.item())
 
 	    # 创建模型参数目录
-        if os.path.exists(join(save_model_dir,attr_name))==False:
-            os.mkdir(join(save_model_dir,attr_name))
-        cvae.save_params(modelDir=join(save_model_dir,attr_name))
-        dis.save_params(modelDir=join(save_model_dir,attr_name))
+        if os.path.exists(save_model_dir)==False:
+            os.mkdir(save_model_dir)
+        cvae.save_params(modelDir=save_model_dir,class_num=len(selected_classes))
+        dis.save_params(modelDir=save_model_dir,class_num=len(selected_classes))
 	
         losses['total'].append(epochLoss/Ns)
         losses['kl'].append(epochLoss_kl/Ns)
@@ -217,8 +231,8 @@ def train_cVAE_GAN( root='E:/Project/ModelAndDataset/data',
         losses['test_class'].append(classScoreTest.item())
 
         if epoch > 1:
-            plot_losses(losses, join(result_dir,attr_name), epochs=epoch+1)
-            plot_norm_losses(losses, join(result_dir,attr_name), epochs=1+epoch)
+            plot_losses(losses, result_dir, epochs=epoch+1)
+            plot_norm_losses(losses, result_dir, epochs=1+epoch)
 
 
 

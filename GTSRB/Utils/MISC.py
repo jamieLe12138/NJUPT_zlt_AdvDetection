@@ -18,15 +18,16 @@ from matplotlib import pyplot as plt
 from time import time
 
 import math
-def drawGTSRBImages(imgs,labels,label_name,save_path,img_num=64,num_rows=8,show=False,overwrite=False):
+def drawGTSRBImages(imgs,labels,label_name_dict,save_path,img_num=64,num_rows=8,show=False,overwrite=False):
     # matplotlib.use('TkAgg') 
     if os.path.exists(save_path)==False or overwrite:
         num_lines = math.ceil(img_num / num_rows)  # 使用math.ceil确保不为整数时向上取整
         fig, axes = plt.subplots(num_lines, num_rows, figsize=(64 , 64))
-        labels_name = ["not_"+label_name, label_name]
         for i in range(img_num):
             image = imgs[i]
-            label = labels_name[labels[i].item()]
+            #print(type(labels[i].item()))
+            key=labels[i].item()
+            label = label_name_dict[key]
             img = np.transpose(image, (1, 2, 0))  # 重新排列通道维度为 (H, W, C)
 
             # 计算子图的行号和列号
@@ -34,7 +35,7 @@ def drawGTSRBImages(imgs,labels,label_name,save_path,img_num=64,num_rows=8,show=
             col = i % num_rows
 
             axes[row, col].imshow(img)
-            axes[row, col].set_title(f"Label: {label}",fontsize=25)
+            axes[row, col].set_title(f"Label:{label}",fontsize=25)
             axes[row, col].axis('off')
         if show:
             plt.show()
@@ -42,28 +43,26 @@ def drawGTSRBImages(imgs,labels,label_name,save_path,img_num=64,num_rows=8,show=
     else:
         print("Image {} exists.".format(save_path))
 import torch
-def get_one_hot_label(labels,num_classes=2):
+def get_one_hot_label(labels,num_classes):
     #shape(batch_size,1)
     # 创建一个全零的独热编码标签张量
     num_samples = labels.shape[0]
-    num_classes = 2
     one_hot_labels = torch.zeros(num_samples, num_classes)
     # 使用scatter_函数将整数数据映射到独热编码标签
     one_hot_labels.scatter_(1, labels, 1)
     return one_hot_labels
 from torch.utils.data import DataLoader, SubsetRandomSampler
-def loadData_selected_labels(selected_classes,batch_size,train=True):
+def loadData_selected_labels(root,selected_classes,batch_size,train=True):
     transform = transforms.Compose([
     transforms.Resize((64, 64)),  # 调整图像大小为统一大小
     transforms.ToTensor(),
     ])
     if train:
         # 下载和加载GTSRB数据集
-        dataset = datasets.GTSRB(root='F:\ModelAndDataset\data',split="train",transform=transform,download=True)
+        dataset = datasets.GTSRB(root=root,split="train",transform=transform,download=True)
     else:
         # 下载和加载GTSRB数据集
-        dataset = datasets.GTSRB(root='F:\ModelAndDataset\data',split="test",transform=transform,download=True)
-    print("===========================================")
+        dataset = datasets.GTSRB(root=root,split="test",transform=transform,download=True)
     # 数字标签与符号映射字典
     class_name_mapping = {
         0: "20 km/h",1: "30 km/h",2: "50 km/h",3: "60 km/h",4: "70 km/h",
@@ -85,9 +84,11 @@ def loadData_selected_labels(selected_classes,batch_size,train=True):
     selected_class_mapping={}
     selected_class_name_mapping={}
     for i in range(len(selected_classes)):
-        selected_class_mapping[i]=selected_classes[i]
+        selected_class_mapping[selected_classes[i]]=i
         selected_class_name_mapping[i]=class_name_mapping[selected_classes[i]]
-    data_loader = DataLoader(dataset=dataset, batch_size=batch_size, sampler=sampler)
+    data_loader = DataLoader(dataset=dataset, batch_size=batch_size, sampler=sampler,shuffle=False)
     return selected_class_mapping,selected_class_name_mapping,data_loader
-
+def mapping_labels(class_mapping,labels):
+    mapped_labels = torch.tensor([class_mapping[label.item()] for label in labels])
+    return mapped_labels
 

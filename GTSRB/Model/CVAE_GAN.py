@@ -61,14 +61,14 @@ class DISCRIMINATOR(nn.Module):
 		return self.discriminate(x)
 
 
-	def save_params(self, modelDir):
+	def save_params(self, modelDir,class_num):
 		print ('saving params...')
-		torch.save(self.state_dict(), join(modelDir,'Discriminator_GTSRB.pth'))
+		torch.save(self.state_dict(), join(modelDir,'Discriminator_GTSRB_{}.pth'.format(class_num)))
 
 
-	def load_params(self, modelDir):
+	def load_params(self, modelDir,class_num):
 		print ('loading params...')
-		self.load_state_dict(torch.load(join(modelDir,'Discriminator_GTSRB.pth')))
+		self.load_state_dict(torch.load(join(modelDir,'Discriminator_GTSRB_{}.pth'.format(class_num))))
 
 
 
@@ -234,14 +234,14 @@ class CVAE(nn.Module):
 
 		return reconstruction, mu, log_var, y
 
-	def save_params(self, modelDir):
+	def save_params(self, modelDir,class_num):
 		print ('saving params...')
-		torch.save(self.state_dict(), join(modelDir, 'cVAE_GAN_GTSRB.pth'))
+		torch.save(self.state_dict(), join(modelDir, 'cVAE_GAN_GTSRB_{}.pth'.format(class_num)))
 
 
-	def load_params(self, modelDir):
+	def load_params(self, modelDir,class_num):
 		print ('loading params...')
-		self.load_state_dict(torch.load(join(modelDir, 'cVAE_GAN_GTSRB.pth')))
+		self.load_state_dict(torch.load(join(modelDir, 'cVAE_GAN_GTSRB_{}.pth'.format(class_num))))
 
 
 
