@@ -210,19 +210,31 @@ class CVAE(nn.Module):
 		# return (BCE+MSE) / (x.size(2) ** 2)+SSIM, KL / mu.size(1)
 		return BCE/ (x.size(2) ** 2), KL / mu.size(1)
 	
-	def caculate_difference(self,x,y):
+	# def caculate_difference(self,x,y,class_nums):
+	# 	x=x.to(self.device)
+	# 	y=y.to(self.device)
+	# 	mu, log_var, rec_y = self.encode(x)
+	# 	z = self.re_param(mu, log_var)
+	# 	# 解码器重构x
+	# 	rec_x = self.decode(rec_y, z)
+	# 	# 解码器用标签重构x
+	# 	one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
+	# 	dec_x = self.decode(one_hot_y,z)
+	# 	diff=rec_x-dec_x
+	# 	max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
+	# 	return max_min_diff
+	def caculate_difference(self,x,y,class_nums):
 		x=x.to(self.device)
 		y=y.to(self.device)
 		mu, log_var, rec_y = self.encode(x)
 		z = self.re_param(mu, log_var)
-		# 解码器重构x
-		rec_x = self.decode(rec_y, z)
 		# 解码器用标签重构x
-		one_hot_y= torch.eye(2)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
+		one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
 		dec_x = self.decode(one_hot_y,z)
-		diff=rec_x-dec_x
+		diff=x-dec_x
 		max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
 		return max_min_diff
+
 
 
 	def forward(self, x):

@@ -198,16 +198,18 @@ def train_cVAE_GAN( selected_classes,
         xTest = xTest.to(device).data
         yTest = yTest.to(device)
         outputs, outMu, outLogVar, outY = cvae(xTest)
-        if epoch%5==0:
+        if (epoch+1)%5==0:
             drawGTSRBImages(xTest.cpu().numpy(),
 			    	        yTest.cpu(),
                             test_class_name_mapping,
 				            save_path=join(result_dir,'input.png'),
+                            overwrite=True
 				            )
             drawGTSRBImages(outputs.cpu().detach().numpy(),
 			    	        yTest.cpu(),
                             test_class_name_mapping,
 				            save_path=join(result_dir,"GTSRB_{}_output{}.png".format(len(selected_classes),epoch)),
+                            overwrite=True
 				            )
 
         (recLossTest), klLossTest = vae_loss_fn(rec_x=outputs, x=xTest, mu=outMu, logVar=outLogVar)

@@ -11,11 +11,10 @@ import numpy as np
 from skimage.metrics import structural_similarity as ssim
 import torch.nn.functional as F
 import os
+from Utils.MISC import *
 class Adversarial_Examples_Generator():
-    def __init__(self,targetmodel,task,dataset,method,targeted,batch_size,save_dir=None,device='cuda'):
+    def __init__(self,targetmodel,method,targeted,batch_size,save_dir=None,device='cuda'):
         self.targetmodel=targetmodel
-        self.task=task
-        self.dataset=dataset
         self.method=method
         self.targeted=targeted
         
@@ -24,11 +23,9 @@ class Adversarial_Examples_Generator():
         self.device=device
         
         
-    def generate(self):
+    def generate(self,loader,mapping):
         model=self.targetmodel
-        task=self.task
         device=self.device
-        dataset=self.dataset
         attacker=self.method
         batch_size = self.batch_size # 选择适当的批次大小
         save_dir=self.save_dir
@@ -45,17 +42,18 @@ class Adversarial_Examples_Generator():
         raw_img_path=None
         raw_label_path=None
         if save_dir:
-            adv_img_path=save_dir+"/AdvImage_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+"_"+task+".npy"
-            adv_label_path=save_dir+"/AdvLabel_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+"_"+task+".npy"
-            raw_img_path=save_dir+"/RawImage_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+"_"+task+".npy"
-            raw_label_path=save_dir+"/RawLabel_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+"_"+task+".npy"
+            adv_img_path=save_dir+"/AdvImage_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+".npy"
+            adv_label_path=save_dir+"/AdvLabel_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+".npy"
+            raw_img_path=save_dir+"/RawImage_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+".npy"
+            raw_label_path=save_dir+"/RawLabel_"+str(type(attacker).__name__)+"_"+str(type(model)).split(".")[-1].split("'")[0]+".npy"
         # 检查目录是否已经保存对抗样本与正常样本
         if save_dir and os.path.exists(adv_img_path) and os.path.exists(adv_label_path) and os.path.exists(raw_img_path) and os.path.exists(raw_label_path):
             print("Attack Task has been finished!")
         # 如果不需要保存数据或数据缺失
         else:
-            loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)       
+            last_batch=None      
             for batch_idx, (data, ground_truth) in enumerate(loader):
+                ground_truth=mapping_labels(mapping,ground_truth)
                 # 将数据和目标移到正确的设备
                 data, ground_truth = data.to(device), ground_truth.to(device)
                 data=data.detach().cpu().numpy()
@@ -88,9 +86,10 @@ class Adversarial_Examples_Generator():
                     adv_imgs=torch.cat([adv_imgs,adv_data[~label_commmon]],dim=0)
                     raw_labels = torch.cat([raw_labels, raw_predicted[~label_commmon].to(device)], dim=0)
                     adv_labels = torch.cat([adv_labels, adv_predicted[~label_commmon].to(device)], dim=0)
+                    last_batch=ground_truth
             print("Generate {} Adversarial Examples! ".format(len(adv_labels)))
-            print("Total Pictures:{}".format(len(dataset)))
-            Acc=100*len(adv_labels)/len(dataset)
+            print("Total Pictures:{}".format((len(loader)-1)*batch_size))
+            Acc=100*len(adv_labels)/((len(loader)-1)*batch_size)
             print(f"Attack Accuracy:{Acc:.2f}%")
             #保存对抗样本
             if adv_img_path:

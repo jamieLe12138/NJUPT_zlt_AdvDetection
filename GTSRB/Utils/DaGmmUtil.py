@@ -18,7 +18,8 @@ from art.attacks.evasion import *
 from torch.utils.data import TensorDataset, DataLoader
 from torchvision.datasets import GTSRB
 def drawConfusion_matrix(target_model_name,
-                         attck_Method,                         
+                         attck_Method,
+                         selected_classes,                         
                          confusion_matrix,
                          save_path=None
                          ):
@@ -40,23 +41,25 @@ def drawConfusion_matrix(target_model_name,
     for i in range(len(classes)):
         for j in range(len(classes)):
             plt.text(j, i, str(confusion_matrix[i, j]),fontsize=12,horizontalalignment="center", color="black")
-    pic_name='{}_{}_{}'.format(target_model_name,attck_Method)
+    pic_name='{}_{}_gtsrb_{}'.format(target_model_name,attck_Method,len(selected_classes))
     if save_path:
         plt.savefig(join(save_path,pic_name))
 
 
-def train_DaGmm(attr_name,
+def train_DaGmm(selected_classes,
                 gen_model,
-                root='E:/Project/ModelAndDataset/data',
-                dagmm_model_path='E:\Project\ModelAndDataset\model\GTSRB\DAGMM',
+                root='F:\ModelAndDataset\data',
+                dagmm_model_path='F:\ModelAndDataset\model\GTSRB\DAGMM',
                 batch_size=64,
                 num_epochs=2,
                 load_model=False,
                 device='cuda'
                 ):
     torch.cuda.empty_cache()
-    trainDataset = GTSRB(root=root,split="train",transform=transforms.ToTensor(),download=True)
-    trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
+    train_class_mapping,train_class_name_mapping,trainLoader=loadData_selected_labels(root=root,
+                                                                                       selected_classes=selected_classes,
+                                                                                       batch_size=batch_size,
+                                                                                       train=True)
 
     # DAGMM模型
     dagmm=DAGMM(3,64,64)
@@ -75,7 +78,8 @@ def train_DaGmm(attr_name,
         epoch_recon_error=0
         epoch_cov_diag=0
         for i, (x, y) in enumerate(trainLoader):
-            difference=gen_model.caculate_difference(x,y)
+            y=mapping_labels(train_class_mapping,y)
+            difference=gen_model.caculate_difference(x,y,len(selected_classes))
             with torch.no_grad():
                 difference=difference.to(device)
             enc, dec, dagmm_z, gamma = dagmm(difference)
@@ -102,10 +106,10 @@ def train_DaGmm(attr_name,
                 time() - TIME
                 ))
     # 创建测试结果目录
-    if os.path.exists(join(dagmm_model_path,attr_name))==False:
-        os.mkdir(join(dagmm_model_path,attr_name))
-    dagmm.save_params(join(dagmm_model_path,attr_name))
-def test_DaGmm(attr_name,
+    if os.path.exists(dagmm_model_path)==False:
+        os.mkdir(dagmm_model_path)
+    dagmm.save_params(dagmm_model_path)
+def test_DaGmm(selected_classes,
                 gen_model,
                 dagmm_model,
                 Attck_method,
@@ -118,16 +122,18 @@ def test_DaGmm(attr_name,
     dagmm_model.eval()
     gen_model.eval()
     torch.cuda.empty_cache()
-    trainDataset = GTSRB(root=root,split="train",transform=transforms.ToTensor(),download=True)
-    trainLoader = DataLoader(trainDataset, batch_size=batch_size, shuffle=False)
+    train_class_mapping,train_class_name_mapping,trainLoader=loadData_selected_labels(root=root,
+                                                                                       selected_classes=selected_classes,
+                                                                                       batch_size=batch_size,
+                                                                                       train=True)
     # ============test=====================
     N = 0
     mu_sum=0
     cov_sum=0
     gamma_sum=0
     for it, (x, y) in enumerate(trainLoader):
-        #print("it:",it)
-        difference=gen_model.caculate_difference(x,y)
+        y=mapping_labels(train_class_mapping,y)
+        difference=gen_model.caculate_difference(x,y,len(selected_classes))
         with torch.no_grad():
             difference=difference.to(device)
             enc, dec, dagmm_z, gamma = dagmm_model(difference)
@@ -158,7 +164,8 @@ def test_DaGmm(attr_name,
     train_labels = []
     train_z = []
     for it, (x,y) in enumerate(trainLoader):
-        difference=gen_model.caculate_difference(x,y)
+        y=mapping_labels(train_class_mapping,y)
+        difference=gen_model.caculate_difference(x,y,len(selected_classes))
         with torch.no_grad():
             difference=difference.to(device)
         enc, dec, dagmm_z, gamma = dagmm_model(difference)
@@ -177,13 +184,13 @@ def test_DaGmm(attr_name,
     clip_values = (0.0, 1.0)
     # 定义模型
     if model_name=='resnet18':
-        target_model=Target_model.ResNet18(2)
+        target_model=Target_model.ResNet18(len(selected_classes))
     elif model_name=='vgg19':
-        target_model=Target_model.VGG_19(2)
+        target_model=Target_model.VGG_19(len(selected_classes))
     elif model_name=='densenet169':
-        target_model=Target_model.Densenet169(2)
+        target_model=Target_model.Densenet169(len(selected_classes))
     elif model_name=='mobilenet':
-        target_model=Target_model.MobileNet(2)
+        target_model=Target_model.MobileNet(len(selected_classes))
     # 定义优化器
     if model_name=='resnet18' or model_name=='densenet169':
         optimizer='Adam'
@@ -192,18 +199,15 @@ def test_DaGmm(attr_name,
     elif model_name=='mobilenet':
         optimizer="RMSprop"
     #加载目标模型
-    target_model.load_state_dict(torch.load(join(target_model_dir,"GTSRB_"+model_name+".pth")))
+    target_model.load_state_dict(torch.load(join(target_model_dir,"GTSRB_{}_{}.pth".format(model_name,len(selected_classes)))))
     estimator=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
                                     optimizer=optimizer,
                                     input_shape=(3,64,64), nb_classes=2,clip_values=clip_values)
-    attacker=Attck_method(estimator=estimator,eps=0.05)
+    attacker=Attck_method(estimator=estimator,eps=0.2)
 
     # 对抗样本生成器
-    testDataset = GTSRB(root=root,split="test",transform=transforms.ToTensor(),download=True)
     ae_generator=Adversarial_Examples_Generator(
             targetmodel=target_model,
-            task=attr_name,
-            dataset=testDataset,
             method=attacker,
             targeted=False,
             batch_size=64,
@@ -212,7 +216,12 @@ def test_DaGmm(attr_name,
             )
     print("Generating AEs!")
     # 生成对抗样本
-    raw_imgs,adv_imgs,raw_labels,adv_labels=ae_generator.generate()
+    test_class_mapping,test_class_name_mapping,test_Loader =loadData_selected_labels(root=root,
+                                                                                     selected_classes=selected_classes,
+                                                                                     batch_size=batch_size,
+                                                                                     train=False
+                                                                                    )
+    raw_imgs,adv_imgs,raw_labels,adv_labels=ae_generator.generate(test_Loader,test_class_mapping)
     rawDataset=TensorDataset(raw_imgs,raw_labels)
     advDataset=TensorDataset(adv_imgs,adv_labels)
     rawLoader=DataLoader(dataset=rawDataset,batch_size=batch_size,shuffle=False)
@@ -224,7 +233,7 @@ def test_DaGmm(attr_name,
     print("=============Caculating test_energy=======================")
     for (normal_imgs,normal_labels),(ae_imgs,ae_labels) in zip(rawLoader,advLoader):
         # 重构与条件重构正常样本
-        normal_diff=gen_model.caculate_difference(normal_imgs,normal_labels)
+        normal_diff=gen_model.caculate_difference(normal_imgs,normal_labels,len(selected_classes))
         with torch.no_grad():
             normal_diff=normal_diff.to(device)
         # 计算正常样本能量
@@ -235,7 +244,7 @@ def test_DaGmm(attr_name,
         test_labels.append(torch.zeros_like(normal_labels).cpu().numpy())
 
         #重构与条件重构对抗样本
-        adv_diff=gen_model.caculate_difference(ae_imgs,ae_labels)
+        adv_diff=gen_model.caculate_difference(ae_imgs,ae_labels,len(selected_classes))
         with torch.no_grad():
             adv_diff=adv_diff.to(device)
         # 计算对抗样本能量
@@ -249,7 +258,8 @@ def test_DaGmm(attr_name,
     test_z = np.concatenate(test_z,axis=0)
     test_labels = np.concatenate(test_labels,axis=0)
     # 计算combined_energy
-    combined_energy = np.concatenate([train_energy, test_energy], axis=0)
+    # combined_energy = np.concatenate([train_energy, test_energy], axis=0)
+    combined_energy = np.concatenate([train_energy], axis=0)
 
     thresh = np.percentile(combined_energy, 100 - 20)
     print("Threshold :", thresh)
@@ -264,6 +274,7 @@ def test_DaGmm(attr_name,
     print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f}".format(accuracy, precision, recall, f_score))
     drawConfusion_matrix(target_model_name=model_name,
                         attck_Method=str(type(attacker).__name__),
+                        selected_classes=selected_classes,
                         confusion_matrix=matrix,
                         save_path=test_result_path
                         )
