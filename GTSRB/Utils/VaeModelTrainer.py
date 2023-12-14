@@ -198,6 +198,11 @@ def train_cVAE_GAN( selected_classes,
         xTest = xTest.to(device).data
         yTest = yTest.to(device)
         outputs, outMu, outLogVar, outY = cvae(xTest)
+        yDiff = torch.randint(0, len(selected_classes)-1, yTest.shape)
+
+        diff1=cvae.caculate_difference(xTest,yTest,len(selected_classes))
+        diff2=cvae.caculate_difference(xTest,yDiff,len(selected_classes))  
+
         if (epoch+1)%5==0:
             drawGTSRBImages(xTest.cpu().numpy(),
 			    	        yTest.cpu(),
@@ -211,6 +216,18 @@ def train_cVAE_GAN( selected_classes,
 				            save_path=join(result_dir,"GTSRB_{}_output{}.png".format(len(selected_classes),epoch)),
                             overwrite=True
 				            )
+            # drawGTSRBImages(diff1.cpu().detach().numpy(),
+			#     	        yTest.cpu(),
+            #                 test_class_name_mapping,
+			# 	            save_path=join(result_dir,"GTSRB_{}_diffsame{}.png".format(len(selected_classes),epoch)),
+            #                 overwrite=True
+			# 	            )
+            # drawGTSRBImages(diff2.cpu().detach().numpy(),
+			#     	        yDiff.cpu(),
+            #                 test_class_name_mapping,
+			# 	            save_path=join(result_dir,"GTSRB_{}_diffrand{}.png".format(len(selected_classes),epoch)),
+            #                 overwrite=True
+			# 	            )
 
         (recLossTest), klLossTest = vae_loss_fn(rec_x=outputs, x=xTest, mu=outMu, logVar=outLogVar)
         maxVal, predLabel = torch.max(outY, 1)

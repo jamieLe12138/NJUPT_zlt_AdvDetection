@@ -9,8 +9,9 @@ model_names=["resnet18","vgg19","densenet169","mobilenet"]
 attackers=[FastGradientMethod,BasicIterativeMethod,ProjectedGradientDescent]
 cvae_dir="F:\ModelAndDataset\model\GTSRB\cVAE_GAN"
 dagmm_dir="F:\ModelAndDataset\model\GTSRB\DAGMM"
-selected_classes= [2,7,9,11,14,15,16,32,35,41]
-train=True
+# selected_classes= [2,7,9,11,14,15,16,32,35,41]
+selected_classes= [7,13,17,32,35]
+train=False
 #===============Train====================
 if train:
    cvae = CVAE(nz=100,
@@ -20,9 +21,9 @@ if train:
 			   g_spectral_norm=False,
 			   CBN=True,
 			   fSize=64,
-            numLabels=10,
+            numLabels=len(selected_classes),
 			   device=device)
-   cvae.load_params(cvae_dir,10)
+   cvae.load_params(cvae_dir,len(selected_classes))
    cvae.to(device)
    train_DaGmm(selected_classes=selected_classes,
                gen_model=cvae,
@@ -40,9 +41,9 @@ cvae = CVAE(nz=100,
 			   g_spectral_norm=False,
 			   CBN=True,
 			   fSize=64,
-            numLabels=10,
+            numLabels=len(selected_classes),
 			   device=device)
-cvae.load_params(cvae_dir,10)
+cvae.load_params(cvae_dir,len(selected_classes))
 cvae.to(device)
 dagmm=DAGMM(3,64,64)
 dagmm.load_params(dagmm_dir)

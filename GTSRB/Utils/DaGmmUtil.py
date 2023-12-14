@@ -203,7 +203,7 @@ def test_DaGmm(selected_classes,
     estimator=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
                                     optimizer=optimizer,
                                     input_shape=(3,64,64), nb_classes=2,clip_values=clip_values)
-    attacker=Attck_method(estimator=estimator,eps=0.2)
+    attacker=Attck_method(estimator=estimator,eps=0.1)
 
     # 对抗样本生成器
     ae_generator=Adversarial_Examples_Generator(
@@ -226,6 +226,23 @@ def test_DaGmm(selected_classes,
     advDataset=TensorDataset(adv_imgs,adv_labels)
     rawLoader=DataLoader(dataset=rawDataset,batch_size=batch_size,shuffle=False)
     advLoader=DataLoader(dataset=advDataset,batch_size=batch_size,shuffle=False)
+
+    x_normal,y_normal=next(iter(rawLoader))
+    diff_normal=gen_model.caculate_difference(x_normal,y_normal,len(selected_classes))
+    drawGTSRBImages(diff_normal.cpu().detach().numpy(),
+			    	        y_normal.cpu(),
+                            test_class_name_mapping,
+				            save_path=join("E:\Project\ZLTProgram\Images\detection_result","GTSRB_{}_{}_diffnormal.png".format(model_name,str(type(attacker).__name__))),
+                            overwrite=True
+				            )
+    x_adv,y_adv=next(iter(advLoader))
+    diff_adv=gen_model.caculate_difference(x_adv,y_adv,len(selected_classes))
+    drawGTSRBImages(diff_adv.cpu().detach().numpy(),
+			    	        y_adv.cpu(),
+                            test_class_name_mapping,
+				            save_path=join("E:\Project\ZLTProgram\Images\detection_result","GTSRB_{}_{}_diffadv.png".format(model_name,str(type(attacker).__name__))),
+                            overwrite=True
+				            )
 
     test_energy = []
     test_labels = []

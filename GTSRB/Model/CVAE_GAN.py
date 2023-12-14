@@ -199,41 +199,44 @@ class CVAE(nn.Module):
 
 		return z
 
+	# def loss(self, rec_x, x, mu, logVar):
+	# 	#Total loss is BCE(x, rec_x) + KL
+	# 	BCE = F.binary_cross_entropy(rec_x, x, size_average=False)  #not averaged over mini-batch if size_average=FALSE and is averaged if =True 
+	# 	#(might be able to use nn.NLLLoss2d())
+	# 	KL = 0.5 * torch.sum(mu ** 2 + torch.exp(logVar) - 1. - logVar) #0.5 * sum(1 + log(var) - mu^2 - var)
+	# 	return BCE/ (x.size(2) ** 2), KL / mu.size(1)
 	def loss(self, rec_x, x, mu, logVar):
-		#ssim=ssim_package.SSIM().to(self.device)
-		#Total loss is BCE(x, rec_x) + KL
-		BCE = F.binary_cross_entropy(rec_x, x, size_average=False)  #not averaged over mini-batch if size_average=FALSE and is averaged if =True 
+		ssim=ssim_package.SSIM().to(self.device)
+		BCE = F.binary_cross_entropy(rec_x, x, size_average=False)
 		#MSE = F.mse_loss(rec_x, x, size_average=False)
-		#SSIM= 5*(1-ssim(rec_x,x))/2
-		#(might be able to use nn.NLLLoss2d())
+		SSIM= 100*(1-ssim(rec_x,x))/2
 		KL = 0.5 * torch.sum(mu ** 2 + torch.exp(logVar) - 1. - logVar) #0.5 * sum(1 + log(var) - mu^2 - var)
-		# return (BCE+MSE) / (x.size(2) ** 2)+SSIM, KL / mu.size(1)
-		return BCE/ (x.size(2) ** 2), KL / mu.size(1)
+		return BCE/ (x.size(2) ** 2)+SSIM, KL / mu.size(1)
 	
-	# def caculate_difference(self,x,y,class_nums):
-	# 	x=x.to(self.device)
-	# 	y=y.to(self.device)
-	# 	mu, log_var, rec_y = self.encode(x)
-	# 	z = self.re_param(mu, log_var)
-	# 	# 解码器重构x
-	# 	rec_x = self.decode(rec_y, z)
-	# 	# 解码器用标签重构x
-	# 	one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
-	# 	dec_x = self.decode(one_hot_y,z)
-	# 	diff=rec_x-dec_x
-	# 	max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
-	# 	return max_min_diff
 	def caculate_difference(self,x,y,class_nums):
 		x=x.to(self.device)
 		y=y.to(self.device)
 		mu, log_var, rec_y = self.encode(x)
 		z = self.re_param(mu, log_var)
+		# 解码器重构x
+		rec_x = self.decode(rec_y, z)
 		# 解码器用标签重构x
 		one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
 		dec_x = self.decode(one_hot_y,z)
-		diff=x-dec_x
+		diff=rec_x-dec_x
 		max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
 		return max_min_diff
+	# def caculate_difference(self,x,y,class_nums):
+	# 	x=x.to(self.device)
+	# 	y=y.to(self.device)
+	# 	mu, log_var, rec_y = self.encode(x)
+	# 	z = self.re_param(mu, log_var)
+	# 	# 解码器用标签重构x
+	# 	one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
+	# 	dec_x = self.decode(one_hot_y,z)
+	# 	diff=x-dec_x
+	# 	max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
+	# 	return max_min_diff
 
 
 
