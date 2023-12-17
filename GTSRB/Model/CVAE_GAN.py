@@ -224,8 +224,9 @@ class CVAE(nn.Module):
 		one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
 		dec_x = self.decode(one_hot_y,z)
 		diff=rec_x-dec_x
-		max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
-		return max_min_diff
+		#max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
+		#return max_min_diff
+		return 10*diff
 	# def caculate_difference(self,x,y,class_nums):
 	# 	x=x.to(self.device)
 	# 	y=y.to(self.device)

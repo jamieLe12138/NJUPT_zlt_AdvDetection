@@ -203,7 +203,7 @@ def test_DaGmm(selected_classes,
     estimator=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
                                     optimizer=optimizer,
                                     input_shape=(3,64,64), nb_classes=2,clip_values=clip_values)
-    attacker=Attck_method(estimator=estimator,eps=0.1)
+    attacker=Attck_method(estimator=estimator,eps=0.05)
 
     # 对抗样本生成器
     ae_generator=Adversarial_Examples_Generator(
