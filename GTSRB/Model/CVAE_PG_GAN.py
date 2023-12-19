@@ -51,11 +51,8 @@ class TO_RGB_Block(nn.Module):
 					snconv2d(c_in, 3, 3, 1, 1),
 					nn.ReLU()
                     )
-		self.upsample=nn.Upsample(scale_factor=2, mode='nearest')
-	def forward(self,x,upsample):
+	def forward(self,x):
 		x=self.layer(x)
-		if upsample:
-			x=self.upsample(x)
 		return x
 class CVAE(nn.Module):
 	def __init__(self,nz, imSize,block_num,
@@ -129,128 +126,167 @@ class CVAE(nn.Module):
 	def decode(self, y, z, stage,alpha):
 		y=y.to(self.device)
 		z=z.to(self.device)
-		z0=torch.concat([z,y],dim=1)
-		if stage==1 or stage==self.block_num:
+		z=torch.concat([z,y],dim=1)
+		z0=z
+		z=self.dec_fc(z)
+		z=z.view(z.size(0), -1, self.inSize, self.inSize)
+		#第一阶段和最后阶段训练
+		if stage==1 :
+			z=self.dec_blocks[0](z,z0)
+			print("Decoder{} output:{}".format(i,z.shape))
+			z=self.toRGB_blocks[0](z)
+		#中间阶段
+		else:
+			#高分辨率层输出
+			z_high=z
 			for i in range(stage):
-				z=self.dec_blocks[i](z,y)
-				z=self.toRGB_blocks[i](z)
-
-
-		
+				z_high=self.dec_blocks[i](z_high,z0)
+				print("Decoder{} output:{}".format(i,z_high.shape))
+			z_high=self.toRGB_blocks[stage-1](z_high)
+			#低分辨率层输出和上采样
+			z_low=z
+			for i in range(stage-1):
+				z_low=self.dec_blocks[i](z_low,z0)
+			z_low=self.toRGB_blocks[stage-2](z_low)
+			z_low= F.interpolate(z_low, scale_factor=2, mode='nearest')
+			z=(1-alpha)*z_low+alpha*z_high
 		return z
 
+	def loss(self, rec_x, x, mu, logVar):
+		ssim=ssim_package.SSIM().to(self.device)
+		BCE = F.binary_cross_entropy(rec_x, x, size_average=False)
+		#MSE = F.mse_loss(rec_x, x, size_average=False)
+		SSIM= 100*(1-ssim(rec_x,x))/2
+		KL = 0.5 * torch.sum(mu ** 2 + torch.exp(logVar) - 1. - logVar) #0.5 * sum(1 + log(var) - mu^2 - var)
+		return BCE/ (x.size(2) ** 2)+SSIM, KL / mu.size(1)
+	def caculate_difference(self,x,y,class_nums):
+		x=x.to(self.device)
+		y=y.to(self.device)
+		mu, log_var, rec_y = self.encode(x)
+		z = self.re_param(mu, log_var)
+		# 解码器重构x
+		rec_x = self.decode(rec_y, z)
+		# 解码器用标签重构x
+		one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
+		dec_x = self.decode(one_hot_y,z)
+		diff=rec_x-dec_x
+		#max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
+		#return max_min_diff
+		return 10*diff
 
-	# def loss(self, rec_x, x, mu, logVar):
-	# 	ssim=ssim_package.SSIM().to(self.device)
-	# 	BCE = F.binary_cross_entropy(rec_x, x, size_average=False)
-	# 	#MSE = F.mse_loss(rec_x, x, size_average=False)
-	# 	SSIM= 100*(1-ssim(rec_x,x))/2
-	# 	KL = 0.5 * torch.sum(mu ** 2 + torch.exp(logVar) - 1. - logVar) #0.5 * sum(1 + log(var) - mu^2 - var)
-	# 	return BCE/ (x.size(2) ** 2)+SSIM, KL / mu.size(1)
-	
-	# def caculate_difference(self,x,y,class_nums):
-	# 	x=x.to(self.device)
-	# 	y=y.to(self.device)
-	# 	mu, log_var, rec_y = self.encode(x)
-	# 	z = self.re_param(mu, log_var)
-	# 	# 解码器重构x
-	# 	rec_x = self.decode(rec_y, z)
-	# 	# 解码器用标签重构x
-	# 	one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
-	# 	dec_x = self.decode(one_hot_y,z)
-	# 	diff=rec_x-dec_x
-	# 	#max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
-	# 	#return max_min_diff
-	# 	return 10*diff
-	# # def caculate_difference(self,x,y,class_nums):
-	# # 	x=x.to(self.device)
-	# # 	y=y.to(self.device)
-	# # 	mu, log_var, rec_y = self.encode(x)
-	# # 	z = self.re_param(mu, log_var)
-	# # 	# 解码器用标签重构x
-	# # 	one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
-	# # 	dec_x = self.decode(one_hot_y,z)
-	# # 	diff=x-dec_x
-	# # 	max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
-	# # 	return max_min_diff
+	def forward(self, x,stage,alpha):
+		# the outputs needed for training
+		x=x.to(self.device)
+		mu, log_var, y = self.encode(x)
+		z = self.re_param(mu, log_var)
+		reconstruction = self.decode(y,z,stage,alpha)
 
+		return reconstruction, mu, log_var, y
 
+	def save_params(self, modelDir,class_num):
+		print ('saving params...')
+		torch.save(self.state_dict(), join(modelDir, 'cVAE_PG_GAN_GTSRB_{}.pth'.format(class_num)))
 
-	# def forward(self, x):
-	# 	# the outputs needed for training
-	# 	x=x.to(self.device)
-	# 	mu, log_var, y = self.encode(x)
-	# 	z = self.re_param(mu, log_var)
-	# 	reconstruction = self.decode(y, z)
+	def load_params(self, modelDir,class_num):
+		print ('loading params...')
+		self.load_state_dict(torch.load(join(modelDir, 'cVAE_PG_GAN_GTSRB_{}.pth'.format(class_num))))
 
-	# 	return reconstruction, mu, log_var, y
+class Dis_Block(nn.Module):
+	def __init__(self,c_in,c_out,k_size,stride,pad):
+		super(Dis_Block,self).__init__()
+		self.layer1=nn.Sequential(
+					snconv2d(c_in, c_out, k_size, stride, pad),
+					nn.LeakyReLU(0.2)
+                    )
+		self.layer2=nn.Sequential(
+					snconv2d(c_out, c_out, k_size, stride, pad),
+					nn.LeakyReLU(0.2)
+                    )
+	def forward(self,x):
+		x=F.avg_pool2d(x, kernel_size=2, stride=2)
+		x=self.layer1(x)
+		x=self.layer2(x)
+		return x
 
-	# def save_params(self, modelDir,class_num):
-	# 	print ('saving params...')
-	# 	torch.save(self.state_dict(), join(modelDir, 'cVAE_GAN_GTSRB_{}.pth'.format(class_num)))
+class FROM_RGB_Block(nn.Module):
+	def __init__(self,c_out):
+		super(FROM_RGB_Block,self).__init__()
+		self.c_out=c_out
+		self.layer=nn.Sequential(
+					snconv2d(3,c_out, 3, 1, 1),
+					nn.LeakyReLU(0.2)
+                    )
+	def forward(self,x):
+		x=self.layer(x)
+		return x
 
-
-	# def load_params(self, modelDir,class_num):
-	# 	print ('loading params...')
-	# 	self.load_state_dict(torch.load(join(modelDir, 'cVAE_GAN_GTSRB_{}.pth'.format(class_num))))
-		
 
 class DISCRIMINATOR(nn.Module):
-	def __init__(self, imSize, fSize=2, numLabels=1,self_attn=False,d_spectral_norm=False,device='cpu',):
+	def __init__(self, imSize, block_num ,fSize=64,numLabels=1,device='cpu',):
 		super(DISCRIMINATOR, self).__init__()
 		#define layers here
 		self.device=device
 		self.fSize = fSize
 		self.imSize = imSize
-		self.attn=self_attn
-		self.d_spectral_norm=d_spectral_norm
-		inSize = imSize // ( 2 ** 4)
+		self.block_num=block_num
+		inSize = imSize // ( 2 ** block_num)
 		self.numLabels = numLabels
-		if d_spectral_norm:
-			self.dis1=snconv2d(3, fSize, 5, stride=2, padding=2)
-			self.dis2=snconv2d(fSize, fSize * 2, 5, stride=2, padding=2)
-			self.dis3 = snconv2d(fSize * 2, fSize * 4, 5, stride=2, padding=2)
-			self.dis4 = snconv2d(fSize * 4, fSize * 8, 5, stride=2, padding=2)
-			self.dis5 = snlinear((fSize * 8) * inSize * inSize, numLabels)
+		self.dis_blocks=nn.ModuleList()
+		self.from_rgb_blocks=nn.ModuleList()
+		self.dis_fc=nn.Linear(2**(self.block_num-1)*fSize*inSize**inSize,1)
+		for i in range(self.block_num):	
+			if i!=0:
+				self.from_rgb_blocks.append(FROM_RGB_Block(2**(i-1)*fSize))
+				disblock=Dis_Block(c_in=2**(i-1)*fSize,
+					  			c_out=2**(i)*fSize,
+								k_size=3,
+								stride=1,
+								pad=1
+								)
+				self.dis_blocks.append(disblock)
+				
+			else:
+				self.from_rgb_blocks.append(FROM_RGB_Block(2**(i)*fSize))				
+				disblock=Dis_Block(c_in=2**(i)*fSize,
+					  			c_out=2**(i)*fSize,
+								k_size=3,
+								stride=1,
+								pad=1
+								)
+				self.dis_blocks.append(disblock)
 
-		else:
-			self.dis1 = nn.Conv2d(3, fSize, 5, stride=2, padding=2)
-			self.dis2 = nn.Conv2d(fSize, fSize * 2, 5, stride=2, padding=2)
-			self.dis3 = nn.Conv2d(fSize * 2, fSize * 4, 5, stride=2, padding=2)
-			self.dis4 = nn.Conv2d(fSize * 4, fSize * 8, 5, stride=2, padding=2)
-			self.dis5 = nn.Linear((fSize * 8) * inSize * inSize, numLabels)
-		if self_attn:
-			self.attn_block=Self_Attn(fSize * 8,spectral_norm=False)
-
-	def discriminate(self, x):
+	def discriminate(self,x,stage,alpha):
 		x=x.to(self.device)
-		x = F.relu(self.dis1(x))
-		x = F.relu(self.dis2(x))
-		x = F.relu(self.dis3(x))
-		x = F.relu(self.dis4(x))
-		if self.attn:
-			x=self.attn_block(x)
-		x = x.view(x.size(0), -1)
-		if self.numLabels == 1:
-			x = F.sigmoid(self.dis5(x))
+		if stage==1 :
+			x=self.from_rgb_blocks[-1](x)
+			x=self.dis_blocks[-1](x)
 		else:
-			x = F.softmax(self.dis5(x))
-		
+			# 计算当前层的输出
+			x=self.from_rgb_blocks[self.block_num-stage](x)
+			x_low=self.dis_blocks[self.block_num-stage](x)
+			# 使用下一层的输出
+			x_high=F.avg_pool2d(x, kernel_size=2, stride=2)
+			x_high=self.from_rgb_blocks[self.block_num-stage+1](x)
+			x=x_low*alpha+x_high*(1-alpha)
+			for i in range(self.block_num-stage+1,self.block_num):
+				x=self.dis_blocks[i](x)
+		x=x.view(x.size(0),-1)
+		x=x.dis_fc(x)
 		return x
 
-	def forward(self, x):
+	def forward(self, x,stage,alpha):
 		# the outputs needed for training
-		return self.discriminate(x)
+		return self.discriminate(x,stage,alpha)
 
 
 	def save_params(self, modelDir,class_num):
 		print ('saving params...')
-		torch.save(self.state_dict(), join(modelDir,'Discriminator_GTSRB_{}.pth'.format(class_num)))
+		torch.save(self.state_dict(), join(modelDir,'Discriminator_PG_GAN_GTSRB_{}.pth'.format(class_num)))
 
 
 	def load_params(self, modelDir,class_num):
 		print ('loading params...')
-		self.load_state_dict(torch.load(join(modelDir,'Discriminator_GTSRB_{}.pth'.format(class_num))))
+		self.load_state_dict(torch.load(join(modelDir,'Discriminator_PG_GAN_GTSRB_{}.pth'.format(class_num))))
 
 
 
