@@ -3,6 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm
+
 import numpy as np
 
 import sys
@@ -12,6 +13,7 @@ import os
 from os.path import join
 from Model.model_options import snconv2d,snlinear,sndeconv2d,Self_Attn,ConditionalBatchNorm2d_for_skip_and_shared
 import pytorch_ssim as ssim_package
+from torchvision import transforms
 
 class Gen_Block(nn.Module):
 	def __init__(self,c_in,c_out,k_size, stride, pad,nz,numLabels):
@@ -133,7 +135,7 @@ class CVAE(nn.Module):
 		#第一阶段和最后阶段训练
 		if stage==1 :
 			z=self.dec_blocks[0](z,z0)
-			print("Decoder{} output:{}".format(i,z.shape))
+			#print("Decoder{} output:{}".format(stage,z.shape))
 			z=self.toRGB_blocks[0](z)
 		#中间阶段
 		else:
@@ -141,7 +143,7 @@ class CVAE(nn.Module):
 			z_high=z
 			for i in range(stage):
 				z_high=self.dec_blocks[i](z_high,z0)
-				print("Decoder{} output:{}".format(i,z_high.shape))
+				#print("Decoder{} output:{}".format(i,z_high.shape))
 			z_high=self.toRGB_blocks[stage-1](z_high)
 			#低分辨率层输出和上采样
 			z_low=z
@@ -151,24 +153,25 @@ class CVAE(nn.Module):
 			z_low= F.interpolate(z_low, scale_factor=2, mode='nearest')
 			z=(1-alpha)*z_low+alpha*z_high
 		return z
-
+	
 	def loss(self, rec_x, x, mu, logVar):
-		ssim=ssim_package.SSIM().to(self.device)
+		#ssim=ssim_package.SSIM().to(self.device)
 		BCE = F.binary_cross_entropy(rec_x, x, size_average=False)
 		#MSE = F.mse_loss(rec_x, x, size_average=False)
-		SSIM= 100*(1-ssim(rec_x,x))/2
+		#SSIM= 100*(1-ssim(rec_x,x))/2
 		KL = 0.5 * torch.sum(mu ** 2 + torch.exp(logVar) - 1. - logVar) #0.5 * sum(1 + log(var) - mu^2 - var)
-		return BCE/ (x.size(2) ** 2)+SSIM, KL / mu.size(1)
-	def caculate_difference(self,x,y,class_nums):
+		#return BCE/ (x.size(2) ** 2)+SSIM, KL / mu.size(1)
+		return BCE/ (x.size(2) ** 2), KL / mu.size(1)
+	def caculate_difference(self,x,y,class_nums,stage,alpha):
 		x=x.to(self.device)
 		y=y.to(self.device)
 		mu, log_var, rec_y = self.encode(x)
 		z = self.re_param(mu, log_var)
 		# 解码器重构x
-		rec_x = self.decode(rec_y, z)
+		rec_x = self.decode(rec_y, z,stage,alpha)
 		# 解码器用标签重构x
 		one_hot_y= torch.eye(class_nums)[torch.LongTensor(y.data.cpu().numpy())].type_as(z)
-		dec_x = self.decode(one_hot_y,z)
+		dec_x = self.decode(one_hot_y,z,stage,alpha)
 		diff=rec_x-dec_x
 		#max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
 		#return max_min_diff
@@ -229,11 +232,11 @@ class DISCRIMINATOR(nn.Module):
 		self.fSize = fSize
 		self.imSize = imSize
 		self.block_num=block_num
-		inSize = imSize // ( 2 ** block_num)
+		outSize = imSize // ( 2 ** block_num)
 		self.numLabels = numLabels
 		self.dis_blocks=nn.ModuleList()
 		self.from_rgb_blocks=nn.ModuleList()
-		self.dis_fc=nn.Linear(2**(self.block_num-1)*fSize*inSize**inSize,1)
+		self.dis_fc=nn.Linear((2**(self.block_num-1))*fSize*outSize*outSize,1)
 		for i in range(self.block_num):	
 			if i!=0:
 				self.from_rgb_blocks.append(FROM_RGB_Block(2**(i-1)*fSize))
@@ -257,21 +260,30 @@ class DISCRIMINATOR(nn.Module):
 
 	def discriminate(self,x,stage,alpha):
 		x=x.to(self.device)
+		# print("000000000",x)
 		if stage==1 :
 			x=self.from_rgb_blocks[-1](x)
 			x=self.dis_blocks[-1](x)
 		else:
+			x_high=x
+			x_low=x
 			# 计算当前层的输出
-			x=self.from_rgb_blocks[self.block_num-stage](x)
-			x_low=self.dis_blocks[self.block_num-stage](x)
+			x_low=self.from_rgb_blocks[self.block_num-stage](x_low)
+			#print("From_rgb{} out:{}".format(self.block_num-stage,x_low.shape))
+			x_low=self.dis_blocks[self.block_num-stage](x_low)
+			#print("Disblock{} out:{}".format(self.block_num-stage,x_low.shape))
 			# 使用下一层的输出
-			x_high=F.avg_pool2d(x, kernel_size=2, stride=2)
-			x_high=self.from_rgb_blocks[self.block_num-stage+1](x)
+			x_high=F.avg_pool2d(x_high, kernel_size=2, stride=2)
+			x_high=self.from_rgb_blocks[self.block_num-stage+1](x_high)
+			#print("From_rgb{} out:{}".format(self.block_num-stage+1,x_high.shape))
 			x=x_low*alpha+x_high*(1-alpha)
+			#print(x.shape)
 			for i in range(self.block_num-stage+1,self.block_num):
 				x=self.dis_blocks[i](x)
+				#print("Disblock{} out:{}".format(i,x.shape))
+		print("==========",x.shape)
 		x=x.view(x.size(0),-1)
-		x=x.dis_fc(x)
+		x=F.sigmoid(self.dis_fc(x))
 		return x
 
 	def forward(self, x,stage,alpha):
