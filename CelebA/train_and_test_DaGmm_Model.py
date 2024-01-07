@@ -8,10 +8,11 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 attr_names = [ 'Male', 'Smiling','Young']
 #attr_names = [ '','Smiling', "Eyeglasses","Young"]
 model_names=["resnet18","vgg19","densenet169","mobilenet"]
+epsilons=[0.05,0.075,0.1]
 attackers=[FastGradientMethod,BasicIterativeMethod,ProjectedGradientDescent]
 cvae_dir="F:\ModelAndDataset\model\CelebA\cVAE_GAN"
 dagmm_dir="F:\ModelAndDataset\model\CelebA\DAGMM"
-train=False
+train=True
 #===============Train====================
 if train:
    for attr_name in attr_names:
@@ -48,12 +49,14 @@ for attr_name in attr_names:
    dagmm.to(device)
    for attacker in attackers:
       for model_name in model_names:
-         test_DaGmm(attr_name=attr_name,
-                     gen_model=cvae,
-                     dagmm_model=dagmm,
-                     Attck_method=attacker,
-                     root="F:\ModelAndDataset\data",
-                     target_model_dir="F:\ModelAndDataset\model\CelebA",
-                     model_name=model_name,
-                     test_result_path="E:\Project\ZLTProgram\Images\detection_result",
-                     )
+         for eps in epsilons:
+            test_DaGmm(attr_name=attr_name,
+                        gen_model=cvae,
+                        dagmm_model=dagmm,
+                        Attck_method=attacker,
+                        eps=eps,
+                        root="F:\ModelAndDataset\data",
+                        target_model_dir="F:\ModelAndDataset\model\CelebA",
+                        model_name=model_name,
+                        test_result_path="E:\Project\ZLTProgram\Images\detection_result",
+                        )

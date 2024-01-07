@@ -16,33 +16,46 @@ import pytorch_ssim as ssim_package
 from torchvision import transforms
 
 class Gen_Block(nn.Module):
-	def __init__(self,c_in,c_out,k_size, stride, pad,nz,numLabels):
+	def __init__(self,c_in,c_out,nz,numLabels,g_spectral_norm=False,self_attn=False):
 		super(Gen_Block,self).__init__()
 		self.nz=nz
 		self.numLabels=numLabels
+		self.self_attn=self_attn
 		# self.upsample=nn.Upsample(scale_factor=2, mode='nearest')
-		self.layer1=nn.Sequential(
-					snconv2d(c_in, c_out, k_size, stride, pad),
+		if g_spectral_norm:
+			self.layer1=nn.Sequential(
+					sndeconv2d(c_in, c_out, 3,2,1,1),
 					nn.ReLU()
                     )
-		self.layer2=nn.Sequential(
-					snconv2d(c_out, c_out, k_size, stride, pad),
+			self.layer2=nn.Sequential(
+					sndeconv2d(c_out, c_out, 3, 1, 1),
 					nn.ReLU()
                     )
+		else:
+			self.layer1=nn.Sequential(
+					nn.ConvTranspose2d(c_in, c_out, 3,2,1,1),
+					nn.ReLU()
+                    )
+			self.layer2=nn.Sequential(
+					nn.ConvTranspose2d(c_out, c_out, 3, 1, 1),
+					nn.ReLU()
+                    )
+
 		self.cbn1=ConditionalBatchNorm2d_for_skip_and_shared(num_features=c_out,
 														 	z_dims_after_concat=self.nz+self.numLabels,
 															spectral_norm=False)
 		self.cbn2=ConditionalBatchNorm2d_for_skip_and_shared(num_features=c_out,
 														 		  z_dims_after_concat=self.nz+self.numLabels,
 																  spectral_norm=False)
-		self.self_attn=Self_Attn(c_out,False)
+		if self.self_attn:
+			self.self_attn_block=Self_Attn(c_out,False)
 	def forward(self,x,y):
-		x = F.interpolate(x, scale_factor=2, mode='nearest')
 		x=self.layer1(x)
 		x=self.cbn1(x,y)
 		x=self.layer2(x)
 		x=self.cbn2(x,y)
-		x=self.self_attn(x)
+		if self.self_attn:
+			x=self.self_attn(x)
 		return x
 
 class TO_RGB_Block(nn.Module):
@@ -50,7 +63,7 @@ class TO_RGB_Block(nn.Module):
 		super(TO_RGB_Block,self).__init__()
 		self.c_in=c_in
 		self.layer=nn.Sequential(
-					snconv2d(c_in, 3, 3, 1, 1),
+					nn.ConvTranspose2d(c_in,3,3,1,1),
 					nn.ReLU()
                     )
 	def forward(self,x):
@@ -89,20 +102,18 @@ class CVAE(nn.Module):
 			if i!=self.block_num-1:
 				genblock=Gen_Block(c_in=2**(self.block_num-i-1)*fSize,
 					  			c_out=2**(self.block_num-i-2)*fSize,
-								k_size=3,
-								stride=1,
-								pad=1,
 								nz=self.nz,
-								numLabels=self.numLabels)
+								numLabels=self.numLabels,
+								self_attn=False
+								)
 				self.toRGB_blocks.append(TO_RGB_Block(c_in=2**(self.block_num-i-2)*fSize))
 			else:
 				genblock=Gen_Block(c_in=2**(self.block_num-i-1)*fSize,
 					  			c_out=2**(self.block_num-i-1)*fSize,
-								k_size=3,
-								stride=1,
-								pad=1,
 								nz=self.nz,
-								numLabels=self.numLabels)
+								numLabels=self.numLabels,
+								self_attn=False
+								)
 				self.toRGB_blocks.append(TO_RGB_Block(c_in=2**(self.block_num-i-1)*fSize))
 			self.dec_blocks.append(genblock)	
 
@@ -113,7 +124,7 @@ class CVAE(nn.Module):
 			x=F.relu(layer(x))
 		x = self.enc_attn_block(x)
 		x = x.view(x.size(0), -1)
-		print(x.shape)
+		#print(x.shape)
 		mu = self.encMu(x)  #no relu - mean may be negative
 		log_var = self.encLogVar(x) #no relu - log_var may be negative
 		y = F.softmax(self.encY(x.detach()))
@@ -281,7 +292,7 @@ class DISCRIMINATOR(nn.Module):
 			for i in range(self.block_num-stage+1,self.block_num):
 				x=self.dis_blocks[i](x)
 				#print("Disblock{} out:{}".format(i,x.shape))
-		print("==========",x.shape)
+		#print("==========",x.shape)
 		x=x.view(x.size(0),-1)
 		x=F.sigmoid(self.dis_fc(x))
 		return x
@@ -299,7 +310,6 @@ class DISCRIMINATOR(nn.Module):
 	def load_params(self, modelDir,class_num):
 		print ('loading params...')
 		self.load_state_dict(torch.load(join(modelDir,'Discriminator_PG_GAN_GTSRB_{}.pth'.format(class_num))))
-
 
 
 

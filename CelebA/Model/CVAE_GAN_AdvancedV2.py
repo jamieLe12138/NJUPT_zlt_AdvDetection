@@ -223,6 +223,7 @@ class CVAE(nn.Module):
 		diff=rec_x-dec_x
 		max_min_diff=(diff - diff.min()) / (diff.max() - diff.min()).detach()
 		return max_min_diff
+		#return 10*diff
 
 
 	def forward(self, x):

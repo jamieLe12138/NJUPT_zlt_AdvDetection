@@ -19,7 +19,8 @@ from torch.utils.data import TensorDataset, DataLoader
 
 def drawConfusion_matrix(target_model_name,
                          attr_name,
-                         attck_Method,                         
+                         attck_Method, 
+                         eps,                        
                          confusion_matrix,
                          save_path=None
                          ):
@@ -41,14 +42,15 @@ def drawConfusion_matrix(target_model_name,
     for i in range(len(classes)):
         for j in range(len(classes)):
             plt.text(j, i, str(confusion_matrix[i, j]),fontsize=12,horizontalalignment="center", color="black")
-    pic_name='{}_{}_{}'.format(target_model_name,attr_name,attck_Method)
+    eps= "{:e}".format(eps).replace(".","")
+    pic_name='{}_{}_{}_{}'.format(target_model_name,attr_name,attck_Method,eps)
     if save_path:
         plt.savefig(join(save_path,pic_name))
 
 
 def train_DaGmm(attr_name,
                 gen_model,
-                root='E:/Project/ModelAndDataset/data',
+                root="F:\ModelAndDataset\data",
                 dagmm_model_path='E:\Project\ModelAndDataset\model\CelebA\DAGMM',
                 batch_size=64,
                 num_epochs=2,
@@ -110,8 +112,9 @@ def test_DaGmm(attr_name,
                 gen_model,
                 dagmm_model,
                 Attck_method,
-                root='E:/Project/ModelAndDataset/data',
-                target_model_dir="E:\Project\ModelAndDataset\model\CelebA",
+                eps=0.05,
+                root="F:\ModelAndDataset\data",
+                target_model_dir="F:\ModelAndDataset\model\CelebA",
                 model_name='resnet18',
                 test_result_path=None,
                 batch_size=64,
@@ -197,7 +200,7 @@ def test_DaGmm(attr_name,
     estimator=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
                                     optimizer=optimizer,
                                     input_shape=(3,64,64), nb_classes=2,clip_values=clip_values)
-    attacker=Attck_method(estimator=estimator,eps=0.05)
+    attacker=Attck_method(estimator=estimator,eps=eps)
 
     # 对抗样本生成器
     testDataset = CELEBA(root=root, train=False,train_ratio=0.98,transform=transforms.ToTensor(),label=attr_name)
@@ -266,6 +269,7 @@ def test_DaGmm(attr_name,
     drawConfusion_matrix(target_model_name=model_name,
                         attr_name=attr_name,
                         attck_Method=str(type(attacker).__name__),
+                        eps=eps,
                         confusion_matrix=matrix,
                         save_path=test_result_path
                         )

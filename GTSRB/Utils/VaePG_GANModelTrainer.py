@@ -40,7 +40,7 @@ def train_cVAE_GAN( selected_classes,
                     nz=100,
                     fsize=64,
                     lr=2e-4,
-                    alpha=1e-3,
+                    beta=1e-3,
                     momentum=0.9,
                     stages=4,
                     epochs_per_stage=20,
@@ -101,7 +101,7 @@ def train_cVAE_GAN( selected_classes,
     Ns = len(trainLoader)*train_batch_size  #no samples
     Nb = len(trainLoader)  #no batches
     ####### Start Training #######
-    for current_stage in range(1,stages+1):
+    for current_stage in range(1,stages+2):
         cvae_pg_gan.train()
         dis.train()
         for epoch in range(epochs_per_stage):    
@@ -112,28 +112,28 @@ def train_cVAE_GAN( selected_classes,
             epochLoss_gen = 0
             epochLoss_class = 0
             TIME = time()
-
+            if current_stage==1 or current_stage==stages+1:
+                alpha=1
+            else:
+                alpha=epoch/epochs_per_stage
+            print("Alpha:",alpha)
             for i, data in enumerate(trainLoader, 0):	
                 x, y = data
                 y=mapping_labels(train_class_mapping,y)
                 x, y = x.to(device), y.to(device)
                 
-                if current_stage==1 or current_stage==stages+1:
-                    alpha=1
-                else:
-                    alpha=epoch/epochs_per_stage
-                print("Alpha:",alpha)
-                rec_x, outMu, outLogVar, predY = cvae_pg_gan(x,current_stage,alpha)
-                # print("recon_x:",rec_x)
+                
+                rec_x, outMu, outLogVar, predY = cvae_pg_gan(x,current_stage,beta)
+                
                 reshape_x=transforms.Resize((rec_x.size(2), rec_x.size(3)), InterpolationMode.BILINEAR)(x).to(device)
-                # print("reshape_x:",reshape_x)
-                rec_x = torch.clamp(rec_x, min=0, max=1)  
+                
+                #rec_x = torch.clamp(rec_x, min=0, max=1)  
                 reshape_x = torch.clamp(reshape_x, min=0, max=1)  
                 z = cvae_pg_gan.re_param(outMu, outLogVar)
 		        #VAE loss
 		        # 使用重构图片和原图片计算损失
                 rec_Loss, klLoss = cvae_pg_gan.loss(rec_x=rec_x, x=reshape_x, mu=outMu, logVar=outLogVar)
-                vaeLoss = rec_Loss + alpha*klLoss
+                vaeLoss = rec_Loss + beta*klLoss
                 #Classification loss  #not on reconstructed sample
 		        #计算编码器分类损失	
                 classLoss = class_loss_fn(pred=predY, target=y) 
@@ -146,7 +146,7 @@ def train_cVAE_GAN( selected_classes,
                 # predict_Xreal = dis(reshape_x,current_stage,alpha)
 	            # 生成图片预测
                 predict_XRec = dis(rec_x.detach(),current_stage,alpha)
-                print("reshape_x:",reshape_x.shape)
+                #print("reshape_x:",reshape_x.shape)
                 predict_Xreal = dis(reshape_x,current_stage,alpha)
                 sample_batch_size=x.size(0)
                 zRand = sample_z(sample_batch_size, nz)
@@ -192,8 +192,8 @@ def train_cVAE_GAN( selected_classes,
 
                 if i%25 == 0:
                     i+=1
-                    print ('[%d, %d] loss: %0.5f, rec: %0.5f, alpha*kl: %0.5f, gen: %0.5f, dis: %0.5f,class: %0.5f, time: %0.3f' % \
-		 	        ((current_stage+1)*epochs_per_stage+epoch+1, i, epochLoss/i, epochLoss_rec/i ,alpha*epochLoss_kl/i, epochLoss_gen/i, epochLoss_dis/i, \
+                    print ('[%d,%d,%d] loss: %0.5f, rec: %0.5f,beta*kl: %0.5f, gen: %0.5f, dis: %0.5f,class: %0.5f, time: %0.3f' % \
+		 	        (current_stage,epoch,i,epochLoss/i, epochLoss_rec/i ,beta*epochLoss_kl/i, epochLoss_gen/i, epochLoss_dis/i, \
 			        epochLoss_class/i, time() - TIME))
 		
             cvae_pg_gan.eval()
@@ -209,11 +209,11 @@ def train_cVAE_GAN( selected_classes,
 		
             xTest = xTest.to(device).data
             yTest = yTest.to(device)
-            outputs, outMu, outLogVar, outY = cvae_pg_gan(xTest)
-            yDiff = torch.randint(0, len(selected_classes)-1, yTest.shape)
+            outputs, outMu, outLogVar, outY = cvae_pg_gan(xTest,current_stage,alpha)
+            # yDiff = torch.randint(0, len(selected_classes)-1, yTest.shape)
 
-            diff1=cvae_pg_gan.caculate_difference(xTest,yTest,len(selected_classes),current_stage,alpha)
-            diff2=cvae_pg_gan.caculate_difference(xTest,yDiff,len(selected_classes),current_stage,alpha)  
+            # diff1=cvae_pg_gan.caculate_difference(xTest,yTest,len(selected_classes),current_stage,beta)
+            # diff2=cvae_pg_gan.caculate_difference(xTest,yDiff,len(selected_classes),current_stage,beta)  
 
             if (epoch+1)%5==0:
                 drawGTSRBImages(xTest.cpu().numpy(),
@@ -240,8 +240,12 @@ def train_cVAE_GAN( selected_classes,
                 # 	            save_path=join(result_dir,"GTSRB_{}_diffrand{}.png".format(len(selected_classes),epoch)),
                 #                 overwrite=True
                 # 	            )
+            reshape_xTest=transforms.Resize((outputs.size(2), outputs.size(3)), InterpolationMode.BILINEAR)(xTest).to(device)
+            reshape_xTest = torch.clamp(reshape_xTest, min=0, max=1)
 
-            (recLossTest), klLossTest = vae_loss_fn(rec_x=outputs, x=xTest, mu=outMu, logVar=outLogVar)
+
+            (recLossTest), klLossTest = cvae_pg_gan.loss(rec_x=outputs, x=reshape_xTest, mu=outMu, logVar=outLogVar)
+            
             maxVal, predLabel = torch.max(outY, 1)
             classScoreTest = torch.eq(predLabel, yTest).float().sum()/yTest.size(0)
             print ('classification test:', classScoreTest.item())
@@ -264,7 +268,6 @@ def train_cVAE_GAN( selected_classes,
             if epoch > 1:
                 plot_losses(losses, result_dir, epochs=epoch+1)
                 plot_norm_losses(losses, result_dir, epochs=1+epoch)
-
 
 
 

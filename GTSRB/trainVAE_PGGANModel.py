@@ -15,7 +15,7 @@ train_cVAE_GAN(selected_classes=selected_classes,
                nz=100,
                fsize=32,
                stages=4,
-               epochs_per_stage=20,
+               epochs_per_stage=40,
                save_model_dir=save_model_dir,
                result_dir=result_dir
                 ) 
