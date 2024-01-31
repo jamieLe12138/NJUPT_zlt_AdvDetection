@@ -8,11 +8,11 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 attr_names = [ 'Male', 'Smiling','Young']
 #attr_names = [ '','Smiling', "Eyeglasses","Young"]
 model_names=["resnet18","vgg19","densenet169","mobilenet"]
-epsilons=[0.05,0.075,0.1]
+epsilons=[0.025,0.05,0.075]
 attackers=[FastGradientMethod,BasicIterativeMethod,ProjectedGradientDescent]
 cvae_dir="F:\ModelAndDataset\model\CelebA\cVAE_GAN"
 dagmm_dir="F:\ModelAndDataset\model\CelebA\DAGMM"
-train=True
+train=False
 #===============Train====================
 if train:
    for attr_name in attr_names:
