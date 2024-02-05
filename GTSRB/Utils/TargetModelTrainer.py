@@ -35,7 +35,7 @@ def train_GTSRB_target_model(root,save_dir,
 
     save_path=save_dir+"/GTSRB_{}_{}.pth".format(model,len(selected_classes))
     if os.path.exists(save_path) and pretrained_model_path==None:
-        print("File {} is already existed ,skip trainning!".format(save_path))
+        print("File {} already existed ,skip trainning!".format(save_path))
     else:
         # 加载模型
         if model=='resnet18':
@@ -81,8 +81,6 @@ def train_GTSRB_target_model(root,save_dir,
             model.eval()
             correct = 0
             total = 0
-            # maxAcc_count=0
-            # max_acc=0
             for images, labels in test_Loader:
                 images=images.to(device)
                 labels=mapping_labels(test_class_mapping,labels)

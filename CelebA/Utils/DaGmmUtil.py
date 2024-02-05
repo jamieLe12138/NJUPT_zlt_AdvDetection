@@ -43,7 +43,7 @@ def drawConfusion_matrix(target_model_name,
         for j in range(len(classes)):
             plt.text(j, i, str(confusion_matrix[i, j]),fontsize=12,horizontalalignment="center", color="black")
     eps= "{:e}".format(eps).replace(".","")
-    pic_name='{}_{}_{}_{}'.format(target_model_name,attr_name,attck_Method,eps)
+    pic_name='{}_CelebA_{}_{}_{}'.format(target_model_name,attr_name,attck_Method,eps)
     if save_path:
         plt.savefig(join(save_path,pic_name))
 

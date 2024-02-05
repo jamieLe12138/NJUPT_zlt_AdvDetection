@@ -19,6 +19,7 @@ from torch.utils.data import TensorDataset, DataLoader
 from torchvision.datasets import GTSRB
 def drawConfusion_matrix(target_model_name,
                          attck_Method,
+                         eps,   
                          selected_classes,                         
                          confusion_matrix,
                          save_path=None
@@ -41,7 +42,9 @@ def drawConfusion_matrix(target_model_name,
     for i in range(len(classes)):
         for j in range(len(classes)):
             plt.text(j, i, str(confusion_matrix[i, j]),fontsize=12,horizontalalignment="center", color="black")
-    pic_name='{}_{}_gtsrb_{}'.format(target_model_name,attck_Method,len(selected_classes))
+    eps= "{:e}".format(eps).replace(".","")
+    pic_name='{}_GTSRB_{}_{}_{}'.format(target_model_name,len(selected_classes),attck_Method,eps)
+    
     if save_path:
         plt.savefig(join(save_path,pic_name))
 
@@ -113,6 +116,7 @@ def test_DaGmm(selected_classes,
                 gen_model,
                 dagmm_model,
                 Attck_method,
+                eps=0.1,
                 root='F:\ModelAndDataset\data',
                 target_model_dir="F:\ModelAndDataset\model\GTSRB",
                 model_name='resnet18',
@@ -202,7 +206,7 @@ def test_DaGmm(selected_classes,
     target_model.load_state_dict(torch.load(join(target_model_dir,"GTSRB_{}_{}.pth".format(model_name,len(selected_classes)))))
     estimator=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
                                     optimizer=optimizer,
-                                    input_shape=(3,64,64), nb_classes=2,clip_values=clip_values)
+                                    input_shape=(3,64,64), nb_classes=len(selected_classes),clip_values=clip_values)
     attacker=Attck_method(estimator=estimator,eps=0.05)
 
     # 对抗样本生成器
@@ -291,6 +295,7 @@ def test_DaGmm(selected_classes,
     print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f}".format(accuracy, precision, recall, f_score))
     drawConfusion_matrix(target_model_name=model_name,
                         attck_Method=str(type(attacker).__name__),
+                        eps=0.1,
                         selected_classes=selected_classes,
                         confusion_matrix=matrix,
                         save_path=test_result_path
