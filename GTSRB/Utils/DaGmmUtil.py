@@ -207,7 +207,7 @@ def test_DaGmm(selected_classes,
     estimator=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
                                     optimizer=optimizer,
                                     input_shape=(3,64,64), nb_classes=len(selected_classes),clip_values=clip_values)
-    attacker=Attck_method(estimator=estimator,eps=0.05)
+    attacker=Attck_method(estimator=estimator,eps=eps)
 
     # 对抗样本生成器
     ae_generator=Adversarial_Examples_Generator(
@@ -295,7 +295,7 @@ def test_DaGmm(selected_classes,
     print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f}".format(accuracy, precision, recall, f_score))
     drawConfusion_matrix(target_model_name=model_name,
                         attck_Method=str(type(attacker).__name__),
-                        eps=0.1,
+                        eps=eps,
                         selected_classes=selected_classes,
                         confusion_matrix=matrix,
                         save_path=test_result_path
