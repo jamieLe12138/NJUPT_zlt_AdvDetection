@@ -71,44 +71,45 @@ def train_GTSRB_at_model(root,
     print(train_class_name_mapping)
     # 加载对抗训练模型
     at_save_path=at_model_dir+"/GTSRB_{}_{}_at.pth".format(at_model_name,len(selected_classes))
-    if os.path.exists(at_save_path) :
-        print("File {} already existed ,skip trainning!".format(at_save_path))
-        at_model_name.load_state_dict(torch.load(at_save_path))
-    else:
-        # 加载模型
-        if at_model_name=='resnet18':
-            at_model=Target_model.ResNet18(num_classes=len(selected_classes)).to(device)
-        elif at_model_name=='vgg19':
-            at_model=Target_model.VGG_19(num_classes=len(selected_classes)).to(device)
-        elif at_model_name=='densenet169':
-            at_model=Target_model.Densenet169(num_classes=len(selected_classes)).to(device)
-        elif at_model_name=='mobilenet':
-            at_model=Target_model.MobileNet(num_classes=len(selected_classes)).to(device)
-        # 定义优化器
-        if at_model_name=='resnet18' or at_model_name=='densenet169':
-            train_optimizer = torch.optim.Adam(at_model.parameters(), lr=0.001)
-        elif at_model_name=='vgg19' : 
-            train_optimizer = torch.optim.SGD(at_model.parameters(), lr=0.0005, momentum=0.90)
-        elif at_model_name=='mobilenet':
-            train_optimizer =torch.optim.RMSprop(at_model.parameters(),lr=0.001)
-    at_model.to(device)
+    # 加载模型
+    if at_model_name=='resnet18':
+        at_model=Target_model.ResNet18(num_classes=len(selected_classes)).to(device)
+    elif at_model_name=='vgg19':
+        at_model=Target_model.VGG_19(num_classes=len(selected_classes)).to(device)
+    elif at_model_name=='densenet169':
+        at_model=Target_model.Densenet169(num_classes=len(selected_classes)).to(device)
+    elif at_model_name=='mobilenet':
+        at_model=Target_model.MobileNet(num_classes=len(selected_classes)).to(device)
+    # 定义优化器
+    if at_model_name=='resnet18' or at_model_name=='densenet169':
+        train_optimizer = torch.optim.Adam(at_model.parameters(), lr=0.001)
+    elif at_model_name=='vgg19' : 
+        train_optimizer = torch.optim.SGD(at_model.parameters(), lr=0.0005, momentum=0.90)
+    elif at_model_name=='mobilenet':
+        train_optimizer =torch.optim.RMSprop(at_model.parameters(),lr=0.001)
 
-    #定义分类器
     clip_values = (0.0, 1.0)
-    at_classifier=PyTorchClassifier(model=at_model,loss=criterion,
-                                    optimizer=train_optimizer,
-                                    input_shape=(3,64,64), nb_classes=len(selected_classes),clip_values=clip_values)
-    #定义使用对抗训练的攻击方法
-    training_attacker=Attack_method(estimator=at_classifier,eps=train_eps)
-    #===========进行对抗训练==============
-    adv_trainer=AdversarialTrainer(classifier=at_classifier,attacks=training_attacker,ratio=0.5)
-    at_model.train()
-    for i,(images,labels) in enumerate(train_Loader):
-        images=images.cpu().numpy()
-        labels=mapping_labels(train_class_mapping,labels)
-        labels=labels.unsqueeze(1).long()
-        labels=labels.cpu().numpy()
-        adv_trainer.fit(x=images,y=labels,batch_size=batch_size,nb_epochs=num_epochs)
+    if os.path.exists(at_save_path) :
+        print("File {} existed ,loading model!".format(at_save_path))
+        at_model.load_state_dict(torch.load(at_save_path))
+        at_model.to(device)
+    else:
+        #定义分类器
+        at_model.to(device)
+        at_classifier=PyTorchClassifier(model=at_model,loss=criterion,
+                        optimizer=train_optimizer,
+                        input_shape=(3,64,64), nb_classes=len(selected_classes),clip_values=clip_values)
+        #定义使用对抗训练的攻击方法
+        training_attacker=Attack_method(estimator=at_classifier,eps=train_eps)
+        #===========进行对抗训练==============
+        adv_trainer=AdversarialTrainer(classifier=at_classifier,attacks=training_attacker,ratio=0.5)
+        at_model.train()
+        for i,(images,labels) in enumerate(train_Loader):
+            images=images.cpu().numpy()
+            labels=mapping_labels(train_class_mapping,labels)
+            labels=labels.unsqueeze(1).long()
+            labels=labels.cpu().numpy()
+            adv_trainer.fit(x=images,y=labels,batch_size=batch_size,nb_epochs=num_epochs)
     # 测试对抗训练模型的正常精度
     # 评估模型
     at_model.eval()
@@ -192,7 +193,7 @@ def train_GTSRB_at_model(root,
         FN+=torch.sum(at_wrong_adv).item()
     confusion_matrix=np.array([[TN,FP],[FN,TP]])
     drawConfusion_matrix(at_model_name,
-                         str(type(training_attacker).__name__),
+                         str(type(testing_attacker).__name__),
                          test_eps,
                          selected_classes,
                          confusion_matrix,

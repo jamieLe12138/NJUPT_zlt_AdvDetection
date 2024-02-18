@@ -54,7 +54,7 @@ for attacker in attackers:
                   gen_model=cvae,
                   dagmm_model=dagmm,
                   Attck_method=attacker,
-                  eps=0.1,
+                  eps=0.15,
                   root="F:\ModelAndDataset\data",
                   target_model_dir="F:\ModelAndDataset\model\GTSRB",
                   model_name=model_name,

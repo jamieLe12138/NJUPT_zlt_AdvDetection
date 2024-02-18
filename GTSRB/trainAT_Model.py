@@ -25,7 +25,7 @@ for model_name in model_names:
                              criterion=F.cross_entropy,
                              Attack_method=ProjectedGradientDescent,
                              train_eps=0.1,
-                             test_eps=0.05,
+                             test_eps=0.1,
                              device="cuda",
                              save=True
                              )
