@@ -23,9 +23,11 @@ for model_name in model_names:
                              target_model_dir=save_dir,
                              test_result_path="E:\Project\ZLTProgram\Images\detection_result",
                              criterion=F.cross_entropy,
-                             Attack_method=ProjectedGradientDescent,
+                             train_Attack_method=ProjectedGradientDescent,
+                             test_Attack_method=ProjectedGradientDescent,
                              train_eps=0.1,
                              test_eps=0.15,
+                             training_ratio=0.5,
                              device="cuda",
                              save=True
                              )

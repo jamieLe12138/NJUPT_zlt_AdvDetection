@@ -53,9 +53,11 @@ def train_GTSRB_at_model(root,
                         target_model_dir="F:\ModelAndDataset\model\GTSRB",
                         test_result_path=None,
                         criterion = F.cross_entropy,
-                        Attack_method=FastGradientMethod,
+                        train_Attack_method=FastGradientMethod,
+                        test_Attack_method=FastGradientMethod,
                         train_eps=0.1,
                         test_eps=0.1,
+                        training_ratio=0.5,
                         device="cuda",
                         save=True):
     # 加载数据集
@@ -100,9 +102,9 @@ def train_GTSRB_at_model(root,
                         optimizer=train_optimizer,
                         input_shape=(3,64,64), nb_classes=len(selected_classes),clip_values=clip_values)
         #定义使用对抗训练的攻击方法
-        training_attacker=Attack_method(estimator=at_classifier,eps=train_eps)
+        training_attacker=train_Attack_method(estimator=at_classifier,eps=train_eps)
         #===========进行对抗训练==============
-        adv_trainer=AdversarialTrainer(classifier=at_classifier,attacks=training_attacker,ratio=0.5)
+        adv_trainer=AdversarialTrainer(classifier=at_classifier,attacks=training_attacker,ratio=training_ratio)
         at_model.train()
         for i,(images,labels) in enumerate(train_Loader):
             images=images.cpu().numpy()
@@ -149,7 +151,7 @@ def train_GTSRB_at_model(root,
     target_classifier=PyTorchClassifier(model=target_model,loss=nn.CrossEntropyLoss(),
                                 optimizer=test_optimizer,
                                 input_shape=(3,64,64), nb_classes=len(selected_classes),clip_values=clip_values)  
-    testing_attacker=Attack_method(estimator=target_classifier,eps=test_eps)
+    testing_attacker=test_Attack_method(estimator=target_classifier,eps=test_eps)
     # 定义对抗样本生成器
     ae_generator=Adversarial_Examples_Generator(
             targetmodel=target_model,
