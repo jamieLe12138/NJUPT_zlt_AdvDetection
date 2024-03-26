@@ -21,7 +21,7 @@ for model_name in model_names:
                              at_model_dir=save_dir,
                              target_model_name=model_name,
                              target_model_dir=save_dir,
-                             test_result_path="E:\Project\ZLTProgram\Images\detection_result",
+                             test_result_path="E:\Project\ZLTProgram\Images\detection_result\GTSRB_AT_training",
                              criterion=F.cross_entropy,
                              train_Attack_method=ProjectedGradientDescent,
                              test_Attack_method=ProjectedGradientDescent,

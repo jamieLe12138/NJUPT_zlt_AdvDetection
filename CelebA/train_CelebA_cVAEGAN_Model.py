@@ -1,7 +1,7 @@
 from Utils.VaeModelTrainer import train_cVAE_GAN
 
 train_cVAE_GAN(root="F:\ModelAndDataset\data",
-               attr_name="Eyeglasses",
+               attr_name="Smiling",
                save_model_dir="F:\ModelAndDataset\model\CelebA\cVAE_GAN"
                )
 train_cVAE_GAN(root="F:\ModelAndDataset\data",

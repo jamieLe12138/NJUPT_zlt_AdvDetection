@@ -58,5 +58,5 @@ for attr_name in attr_names:
                         root="F:\ModelAndDataset\data",
                         target_model_dir="F:\ModelAndDataset\model\CelebA",
                         model_name=model_name,
-                        test_result_path="E:\Project\ZLTProgram\Images\detection_result",
+                        test_result_path="E:\Project\ZLTProgram\Images\detection_result\CelebA_cVAE_GAN_Advanced",
                         )

@@ -58,5 +58,5 @@ for attacker in attackers:
                   root="F:\ModelAndDataset\data",
                   target_model_dir="F:\ModelAndDataset\model\GTSRB",
                   model_name=model_name,
-                  test_result_path="E:\Project\ZLTProgram\Images\detection_result",
+                  test_result_path="E:\Project\ZLTProgram\Images\detection_result\GTSRB_cVAE_GAN_Advanced",
                   )
